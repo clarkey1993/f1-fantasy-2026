@@ -161,7 +161,7 @@ with tab2:
                 g_l = st.selectbox("GROUP L (Pick 1)", ["Audi", "Haas"], index=None)
                 g_m = st.selectbox("GROUP M (Pick 1)", ["Cadillac", "Racing Bulls"], index=None)
 
-            rules_check = st.checkbox("I agree to the rules and the £5 / €5 entry fee.")
+            rules_check = st.checkbox("I agree to the rules and the £5 / €5 per race fee.")
             
             if st.form_submit_button("Submit Team"):
                 required_selections = [g_c, g_d, g_e, g_f, g_g, g_h, g_j, g_k, g_l, g_m]
