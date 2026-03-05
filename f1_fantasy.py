@@ -8,6 +8,27 @@ from streamlit_gsheets import GSheetsConnection
 # 1. SETUP & CONNECTION
 st.set_page_config(page_title="F1 Fantasy 2026", layout="wide")
 
+st.markdown("""
+    <style>
+        /* Target the main app background */
+        .stApp {
+            background-color: #0E1117;
+        }
+        /* Target the top header area */
+        [data-testid="stHeader"] {
+            background-color: rgba(0,0,0,0);
+        }
+        /* Target the main content area */
+        .main {
+            background-color: #0E1117;
+        }
+        /* Target the bottom area */
+        footer {
+            visibility: hidden;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
 # Google Sheet URL
 url = "https://docs.google.com/spreadsheets/d/150YSDU3o1SiEM1WHpPEK9pNPnGUu03qxR26H77RnApw/edit?usp=sharing"
 conn = st.connection("gsheets", type=GSheetsConnection)
@@ -203,4 +224,5 @@ with tab3:
                 st.rerun()
                 
     elif admin_pw != "":
+
         st.error("Incorrect Password.")
