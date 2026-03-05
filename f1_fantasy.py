@@ -8,6 +8,18 @@ from streamlit_gsheets import GSheetsConnection
 # 1. SETUP & CONNECTION
 st.set_page_config(page_title="F1 Fantasy 2026", layout="wide")
 
+# --- CUSTOM THEME STYLING (Fixes white top/bottom & mobile look) ---
+st.markdown("""
+    <style>
+        .stApp { background-color: #0E1117; }
+        header { visibility: hidden; }
+        footer { visibility: hidden; }
+        .main { background-color: #0E1117; }
+        /* Make tabs easier to tap on mobile */
+        .stTabs [data-baseweb="tab"] { font-size: 18px; font-weight: bold; }
+    </style>
+    """, unsafe_allow_html=True)
+
 # Google Sheet URL
 url = "https://docs.google.com/spreadsheets/d/150YSDU3o1SiEM1WHpPEK9pNPnGUu03qxR26H77RnApw/edit?usp=sharing"
 conn = st.connection("gsheets", type=GSheetsConnection)
@@ -15,7 +27,6 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 # --- COMMISSIONER CONTROLS ---
 deadline = datetime.datetime(2026, 3, 8, 5, 0)
 now = datetime.datetime.now()
-
 signups_open = now < deadline 
 
 # 2. SAVE FUNCTION
@@ -36,40 +47,84 @@ st.title("🏁 F1 Fantasy Championship 2026")
 tab1, tab2, tab3 = st.tabs(["📊 Leaderboard", "✍️ Rules & Signup", "🛠️ Admin"])
 
 # --- TAB 1: LEADERBOARD ---
+# --- TAB 1: LEADERBOARD ---
 with tab1:
     st.header("🏆 2026 League Standings")
     try:
         # 1. Read data from Google Sheets
-        df_leaderboard = conn.read(spreadsheet=url, ttl=0)
+        df = conn.read(spreadsheet=url, ttl=0)
         
-        if not df_leaderboard.empty:
-            # 2. Data Cleaning & Fill Blanks
-            df_leaderboard['Current Score'] = pd.to_numeric(df_leaderboard.get('Current Score', 0)).fillna(0).astype(int)
-            df_leaderboard['Total Winnings'] = pd.to_numeric(df_leaderboard.get('Total Winnings', 0)).fillna(0.0)
-            # Ensure Previous Pos is numeric
-            df_leaderboard['Previous Pos'] = pd.to_numeric(df_leaderboard.get('Previous Pos', 0)).fillna(0).astype(int)
+        if not df.empty:
+            # 2. Data Cleaning & Fill Blanks (FIXED LOGIC)
+            # We force columns to numeric and handle missing columns gracefully
+            cols_to_fix = {
+                'Current Score': 0,
+                'Total Winnings': 0.0,
+                'Previous Pos': 0,
+                'Last Race Pts': 0
+            }
             
-            # 3. Sort by Score (Primary) and Winnings (Secondary)
-            df_leaderboard = df_leaderboard.sort_values(by=['Current Score', 'Total Winnings'], ascending=False)
+            for col, default in cols_to_fix.items():
+                if col in df.columns:
+                    df[col] = pd.to_numeric(df[col], errors='coerce').fillna(default)
+                else:
+                    df[col] = default
+
+            # Ensure integer types for scores and positions
+            df['Current Score'] = df['Current Score'].astype(int)
+            df['Previous Pos'] = df['Previous Pos'].astype(int)
+            df['Last Race Pts'] = df['Last Race Pts'].astype(int)
+
+            # --- SECTION A: LATEST RACE RECAP (December Style) ---
+            st.subheader("🏁 Latest Race Results")
+            col_left, col_right = st.columns(2)
+            
+            with col_left:
+                st.markdown("**Top Points This Weekend**")
+                # Sort by the most recent race points only
+                latest_pts_df = df.sort_values(by='Last Race Pts', ascending=False).head(5)
+                st.dataframe(
+                    latest_pts_df[['Nickname', 'Last Race Pts']], 
+                    hide_index=True, 
+                    use_container_width=True
+                )
+
+            with col_right:
+                st.markdown("**Weekend Payouts**")
+                # Showing the top 5 earners based on total winnings (or weekend wins if you track them)
+                latest_wins_df = df[df['Total Winnings'] > 0].sort_values(by='Total Winnings', ascending=False).head(5)
+                if not latest_wins_df.empty:
+                    st.dataframe(
+                        latest_wins_df[['Nickname', 'Total Winnings']].style.format({"Total Winnings": "£{:.2f}"}), 
+                        hide_index=True, 
+                        use_container_width=True
+                    )
+                else:
+                    st.info("No payouts for this round yet.")
+            
+            st.divider()
+
+            # --- SECTION B: OVERALL CHAMPIONSHIP ---
+            st.subheader("🏆 Overall Standings")
+            
+            # 3. Sort by Total Score (Primary) and Winnings (Secondary)
+            df_leaderboard = df.sort_values(by=['Current Score', 'Total Winnings'], ascending=False).copy()
             
             # 4. Create the formatted Position column: (Last Pos) Current Pos
-            # Example: (18) 1.
             current_positions = range(1, len(df_leaderboard) + 1)
             formatted_pos = []
             
             for last_pos, curr_pos in zip(df_leaderboard['Previous Pos'], current_positions):
-                # If last_pos is 0 (new entry), we show (-) instead of (0)
-                last_pos_str = str(last_pos) if last_pos > 0 else "-"
+                last_pos_str = str(int(last_pos)) if last_pos > 0 else "-"
                 formatted_pos.append(f"({last_pos_str}) {curr_pos}.")
             
             df_leaderboard['Pos'] = formatted_pos
             
             # 5. Column Selection
-            # Removed 'Total Pot Distributed' metric as requested.
             desired_cols = ['Pos', 'Name', 'Nickname', 'Current Score', 'Total Winnings']
             available_cols = [c for c in desired_cols if c in df_leaderboard.columns]
             
-            # 6. Display with Currency Formatting
+            # 6. Display Main Leaderboard
             st.dataframe(
                 df_leaderboard[available_cols].style.format({
                     "Total Winnings": "£{:.2f}",
@@ -87,8 +142,7 @@ with tab1:
             
     except Exception as e:
         st.error(f"Error loading leaderboard: {e}")
-        st.info("The leaderboard is currently empty or the sheet is missing headers.")# --- TAB 2: SIGNUP ---
-# --- TAB 2: SIGNUP ---
+        st.info("Ensure your Google Sheet headers match: Name, Nickname, Current Score, Total Winnings, Previous Pos, Last Race Pts")# --- TAB 2: SIGNUP ---
 with tab2:
     st.header("📜 Rules & Signup")
 
@@ -181,6 +235,7 @@ with tab2:
                     if save_to_gsheet(new_entry_data):
                         st.balloons()
                         st.success(f"✅ Registration successful! Good luck for the 2026 season.")# --- TAB 3: ADMIN ---
+# --- TAB 3: ADMIN ---
 with tab3:
     st.subheader("🔐 Commissioner Access")
     admin_pw = st.text_input("Enter Admin Password", type="password", key="admin_login")
@@ -204,10 +259,18 @@ with tab3:
             w4 = p_cols[3].number_input("4th", value=20, step=5)
             w5 = p_cols[4].number_input("5th", value=15, step=5)
             
-            if st.button(f"🔄 Sync {selected_race} Results"):
-                with st.spinner("Updating scores..."):
+            if st.button(f"🔄 Sync {selected_race} & Update Positions"):
+                with st.spinner(f"Syncing {selected_race}..."):
+                    # 1. Snapshot Ranks
+                    df_current = conn.read(spreadsheet=url, ttl=0)
+                    if not df_current.empty:
+                        df_current['Previous Pos'] = df_current['Current Score'].rank(ascending=False, method='min').fillna(0).astype(int)
+                        conn.update(spreadsheet=url, data=df_current)
+
+                    # 2. Run Sync
                     prizes = [w1, w2, w3, w4, w5]
                     result_msg = scoring_engine.run_sync(conn, url, 2026, selected_race, race_payouts=prizes)
+                    
                     if "Successfully" in result_msg:
                         st.balloons()
                         st.success(result_msg)
@@ -217,19 +280,35 @@ with tab3:
         with col2:
             st.write("### 🧪 Pre-Season Testing")
             st.info("Bypass API and test Sheet connection with mock data.")
+            
             if st.button("🚀 Run System Stress Test"):
-                with st.spinner("Testing logic..."):
+                with st.spinner("Simulating race and testing logic..."):
+                    # Use test payouts
                     test_prizes = [50, 40, 30, 20, 10]
-                    msg = scoring_engine.run_sync(conn, url, 2026, "Test", race_payouts=test_prizes, is_test=True)
+                    # We pass is_test=True to the scoring engine
+                    msg = scoring_engine.run_sync(conn, url, 2026, "Test Race", race_payouts=test_prizes, is_test=True)
+                    
                     if "Successfully" in msg:
                         st.toast("Test Successful!", icon="✅")
-                        st.success("Math and Connection Verified.")
+                        st.success("Test points and payouts applied to the sheet.")
                     else:
                         st.error(msg)
 
+            st.divider()
+            st.write("### 📂 Data Management")
+            df_export = conn.read(spreadsheet=url, ttl=0)
+            if not df_export.empty:
+                csv = df_export.to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    label="📥 Download League Backup (CSV)",
+                    data=csv,
+                    file_name=f"f1_fantasy_backup_{datetime.datetime.now().strftime('%Y%m%d')}.csv",
+                    mime='text/csv',
+                )
+
             st.write("### ⚠️ Danger Zone")
             if st.button("🗑️ RESET LEAGUE (Wipe Sheet)"):
-                empty_df = pd.DataFrame(columns=['Name', 'Nickname', 'Email', 'Picks', 'Current Score', 'Total Winnings', 'Pos', 'Previous Pos'])
+                empty_df = pd.DataFrame(columns=['Name', 'Nickname', 'Email', 'Picks', 'Current Score', 'Total Winnings', 'Pos', 'Previous Pos', 'Last Race Pts'])
                 conn.update(spreadsheet=url, data=empty_df)
                 st.warning("Data wiped!")
                 st.rerun()
