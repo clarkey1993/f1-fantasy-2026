@@ -127,7 +127,7 @@ with tab1:
             # 6. Display Main Leaderboard
             st.dataframe(
                 df_leaderboard[available_cols].style.format({
-                    "Total Winnings": "£{:.2f}",
+                    "Total Winnings": "£/€{:.2f}",
                     "Current Score": "{:,}"
                 }),
                 hide_index=True,
@@ -314,4 +314,5 @@ with tab3:
                 st.rerun()
                 
     elif admin_pw != "":
+
         st.error("Incorrect Password.")
