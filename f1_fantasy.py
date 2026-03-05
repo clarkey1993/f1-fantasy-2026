@@ -138,7 +138,8 @@ with tab3:
             if st.button("🔄 Sync Latest Results"):
                 with st.spinner("Fetching FastF1 data and updating scores..."):
                     # Call the function from your scoring_engine.py
-                    result_msg = scoring_engine.run_sync(conn, url, 2026, 'Australia')
+                    #result_msg = scoring_engine.run_sync(conn, url, 2026, 'Australia')
+                    result_msg = scoring_engine.run_sync(conn, url, 2025, 'Abu Dhabi')
                     
                     if "Successfully" in result_msg:
                         st.balloons()
@@ -157,4 +158,5 @@ with tab3:
                 st.rerun()
                 
     elif admin_pw != "":
+
         st.error("Incorrect Password.")
