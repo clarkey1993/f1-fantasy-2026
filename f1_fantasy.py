@@ -135,10 +135,17 @@ with tab3:
         col1, col2 = st.columns(2)
         with col1:
             st.write("### 🏁 Race Operations")
-            if st.button("🔄 Sync 2026 Australia Results"):
-                # Your scoring_engine call would go here
-                st.info("Attempting to sync with FastF1...")
-                # df = scoring_engine.run_sync(url) 
+            if st.button("🔄 Sync Latest Results"):
+                with st.spinner("Fetching FastF1 data and updating scores..."):
+                    # Call the function from your scoring_engine.py
+                    result_msg = scoring_engine.run_sync(conn, url, 2026, 'Australia')
+                    
+                    if "Successfully" in result_msg:
+                        st.balloons()
+                        st.success(result_msg)
+                        st.rerun()
+                    else:
+                        st.error(result_msg)
 
         with col2:
             st.write("### ⚠️ Danger Zone")
@@ -148,5 +155,6 @@ with tab3:
                 conn.update(spreadsheet=url, data=empty_df)
                 st.warning("Cloud data wiped. Starting fresh!")
                 st.rerun()
+                
     elif admin_pw != "":
         st.error("Incorrect Password.")
