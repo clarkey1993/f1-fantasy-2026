@@ -8,37 +8,15 @@ from streamlit_gsheets import GSheetsConnection
 # 1. SETUP & CONNECTION
 st.set_page_config(page_title="F1 Fantasy 2026", layout="wide")
 
-st.markdown("""
-    <style>
-        /* Target the main app background */
-        .stApp {
-            background-color: #0E1117;
-        }
-        /* Target the top header area */
-        [data-testid="stHeader"] {
-            background-color: rgba(0,0,0,0);
-        }
-        /* Target the main content area */
-        .main {
-            background-color: #0E1117;
-        }
-        /* Target the bottom area */
-        footer {
-            visibility: hidden;
-        }
-        .stTabs [data-baseweb="tab"] {
-    font-size: 18px;
-    font-weight: bold;
-}
-    </style>
-    """, unsafe_allow_html=True)
-
 # Google Sheet URL
 url = "https://docs.google.com/spreadsheets/d/150YSDU3o1SiEM1WHpPEK9pNPnGUu03qxR26H77RnApw/edit?usp=sharing"
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 # --- COMMISSIONER CONTROLS ---
-signups_open = True 
+deadline = datetime.datetime(2026, 3, 8, 5, 0)
+now = datetime.datetime.now()
+
+signups_open = now < deadline 
 
 # 2. SAVE FUNCTION
 def save_to_gsheet(new_row_dict):
@@ -57,8 +35,6 @@ st.title("🏁 F1 Fantasy Championship 2026")
 
 tab1, tab2, tab3 = st.tabs(["📊 Leaderboard", "✍️ Rules & Signup", "🛠️ Admin"])
 
-# --- TAB 1: LEADERBOARD ---
-# --- TAB 1: LEADERBOARD ---
 # --- TAB 1: LEADERBOARD ---
 with tab1:
     st.header("🏆 2026 League Standings")
@@ -112,21 +88,53 @@ with tab1:
     except Exception as e:
         st.error(f"Error loading leaderboard: {e}")
         st.info("The leaderboard is currently empty or the sheet is missing headers.")# --- TAB 2: SIGNUP ---
+# --- TAB 2: SIGNUP ---
 with tab2:
     st.header("📜 Rules & Signup")
 
-    if not signups_open:
-        st.error("🚫 Season Signups are now CLOSED. The 2026 Grid is locked!")
+    # 1. Calculate Countdown
+    # Deadline: Saturday March 8, 2026 at 5:00 AM UK Time
+    deadline = datetime.datetime(2026, 3, 8, 5, 0)
+    now = datetime.datetime.now()
+    
+    if now < deadline:
+        time_left = deadline - now
+        days = time_left.days
+        hours, remainder = divmod(time_left.seconds, 3600)
+        minutes, _ = divmod(remainder, 60)
+        st.info(f"⏳ **Countdown!!:** {days}d {hours}h {minutes}m until the 2026 Grid is set!")
+    
+    # 2. Check if Signups are open (Uses the automatic clock)
+    signups_open_auto = now < deadline
+
+    if not signups_open_auto:
+        st.error("🚫 Season Signups are now CLOSED. The 2026 Grid is locked! (Deadline: March 8, 05:00 AM)")
+        
+        # We still show the rules even when closed
+        with st.expander("📜 View 2026 Fantasy League Rules"):
+            st.write("""
+            ### 29th Year Rules Summary:
+            * **Entry Fee:** £5 (or Euros).
+            * **Team Structure:** 10 Drivers and 6 Constructors.
+            * **Starting Grid:** 20 pts for 1st, down to 1 pt for 20th.
+            * **Laps:** 1 point for every lap completed.
+            * **Improvement:** 1 point for every position gained from Grid to Finish.
+            * **Finishing:** Points awarded ONLY if you take the Chequered Flag.
+            * **Fastest Lap:** 25 points.
+            * **Constructors:** 10 pts per car finished; only your highest-placed car scores finishing position points.
+            """)
     else:
         with st.expander("📜 View 2026 Fantasy League Rules"):
             st.write("""
             ### How to Score Points (29th Year Rules):
-            * **Starting Grid:** 20 pts for 1st, 19 for 2nd... down to 1 pt.
+            * **The Team:** Your 10 drivers and 6 teams form your squad for the **whole of the 2026 season.**
+            * **Starting Grid:** Points for actual starting grid positions (20 for 1st, 19 for 2nd... down to 1).
             * **Laps:** 1 point for every lap completed.
-            * **Overtaking:** 1 point for every position gained from Grid to Finish.
+            * **Improvement:** 1 point for every position gained from Grid to Finish.
             * **Finishing:** ONLY if driver/constructor takes the Chequered Flag.
             * **Fastest Lap:** 25 points!
-            * **Constructors:** Only your highest-placed car scores finishing points.
+            * **Constructors:** 10 pts for every car that finishes + finishing points for your best car.
+            * **Entry:** £5 / €5 entry fee.
             """)
 
         with st.form("signup_form", clear_on_submit=True):
@@ -153,7 +161,7 @@ with tab2:
                 g_l = st.selectbox("GROUP L (Pick 1)", ["Audi", "Haas"], index=None)
                 g_m = st.selectbox("GROUP M (Pick 1)", ["Cadillac", "Racing Bulls"], index=None)
 
-            rules_check = st.checkbox("I agree to the rules and the entry fee.")
+            rules_check = st.checkbox("I agree to the rules and the £5 / €5 entry fee.")
             
             if st.form_submit_button("Submit Team"):
                 required_selections = [g_c, g_d, g_e, g_f, g_g, g_h, g_j, g_k, g_l, g_m]
@@ -171,9 +179,8 @@ with tab2:
                         "Pos": 0, "Previous Pos": 0
                     }
                     if save_to_gsheet(new_entry_data):
-                        st.success(f"✅ Registration successful!")
-
-# --- TAB 3: ADMIN ---
+                        st.balloons()
+                        st.success(f"✅ Registration successful! Good luck for the 2026 season.")# --- TAB 3: ADMIN ---
 with tab3:
     st.subheader("🔐 Commissioner Access")
     admin_pw = st.text_input("Enter Admin Password", type="password", key="admin_login")
@@ -228,6 +235,4 @@ with tab3:
                 st.rerun()
                 
     elif admin_pw != "":
-
         st.error("Incorrect Password.")
-
