@@ -26,6 +26,10 @@ st.markdown("""
         footer {
             visibility: hidden;
         }
+        .stTabs [data-baseweb="tab"] {
+    font-size: 18px;
+    font-weight: bold;
+}
     </style>
     """, unsafe_allow_html=True)
 
@@ -226,3 +230,4 @@ with tab3:
     elif admin_pw != "":
 
         st.error("Incorrect Password.")
+
