@@ -55,11 +55,11 @@ def show_f1_standings():
         
         with col1:
             st.subheader("Drivers Championship")
-            st.dataframe(df_drivers, hide_index=True, use_container_width=True)
+            st.dataframe(df_drivers, hide_index=True, width='stretch')
             
         with col2:
             st.subheader("Constructors Championship")
-            st.dataframe(df_const, hide_index=True, use_container_width=True)
+            st.dataframe(df_const, hide_index=True, width='stretch')
 
     except Exception as e:
         st.warning("⚠️ Could not connect to live F1 data source.")

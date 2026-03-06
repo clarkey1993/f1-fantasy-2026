@@ -98,7 +98,7 @@ def show_leaderboard(conn, url):
                 st.dataframe(
                     latest_pts_df[['Nickname', 'Last Race Pts']], 
                     hide_index=True, 
-                    use_container_width=True
+                    width='stretch'
                 )
 
             with col_right:
@@ -109,7 +109,7 @@ def show_leaderboard(conn, url):
                     st.dataframe(
                         latest_wins_df[['Nickname', 'Total Winnings']].style.format({"Total Winnings": "£/€{:.2f}"}), 
                         hide_index=True, 
-                        use_container_width=True
+                        width='stretch'
                     )
                 else:
                     st.info("No payouts for this round yet.")
@@ -144,7 +144,7 @@ def show_leaderboard(conn, url):
             st.dataframe(
                 df_leaderboard[available_cols],
                 hide_index=True,
-                use_container_width=True,
+                width='stretch',
                 column_config={
                     "Team Sheet": st.column_config.LinkColumn("Selections", display_text="View Team")
                 }
