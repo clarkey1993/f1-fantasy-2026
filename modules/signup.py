@@ -52,29 +52,29 @@ def show_signup_form(conn, url, save_to_gsheet_func):
 
         with st.form("signup_form", clear_on_submit=False):
             st.subheader("2026 Season Selections")
-            name = st.text_input("Full Name")
-            nickname = st.text_input("Team Nickname")
-            email = st.text_input("Email")
+            name = st.text_input("Full Name", key="signup_name")
+            nickname = st.text_input("Team Nickname", key="signup_nickname")
+            email = st.text_input("Email", key="signup_email")
             
             col1, col2 = st.columns(2)
             with col1:
-                g_a = st.multiselect("GROUP A (Pick 2)", ["Charles Leclerc", "George Russell", "Lando Norris", "Max Verstappen"], max_selections=2)
-                g_b = st.multiselect("GROUP B (Pick 2)", ["Fernando Alonso", "Kimi Antonelli", "Lewis Hamilton", "Oscar Piastri"], max_selections=2)
-                g_c = st.selectbox("GROUP C (Pick 1)", ["Carlos Sainz Jnr", "Isack Hadjar", "Pierre Gasly"], index=None)
-                g_d = st.selectbox("GROUP D (Pick 1)", ["Alex Albon", "Lance Stroll"], index=None)
-                g_e = st.selectbox("GROUP E (Pick 1)", ["Esteban Ocon", "Liam Lawson", "Oliver Bearman"], index=None)
-                g_f = st.selectbox("GROUP F (Pick 1)", ["Arvid Lindblad", "Nico Hulkenberg"], index=None)
-                g_g = st.selectbox("GROUP G (Pick 1)", ["Franco Colapinto", "Gabriel Bortoleto"], index=None)
-                g_h = st.selectbox("GROUP H (Pick 1)", ["Sergio Perez", "Valtteri Bottas"], index=None)
+                g_a = st.multiselect("GROUP A (Pick 2)", ["Charles Leclerc", "George Russell", "Lando Norris", "Max Verstappen"], max_selections=2, key="signup_g_a")
+                g_b = st.multiselect("GROUP B (Pick 2)", ["Fernando Alonso", "Kimi Antonelli", "Lewis Hamilton", "Oscar Piastri"], max_selections=2, key="signup_g_b")
+                g_c = st.selectbox("GROUP C (Pick 1)", ["Carlos Sainz Jnr", "Isack Hadjar", "Pierre Gasly"], index=None, key="signup_g_c")
+                g_d = st.selectbox("GROUP D (Pick 1)", ["Alex Albon", "Lance Stroll"], index=None, key="signup_g_d")
+                g_e = st.selectbox("GROUP E (Pick 1)", ["Esteban Ocon", "Liam Lawson", "Oliver Bearman"], index=None, key="signup_g_e")
+                g_f = st.selectbox("GROUP F (Pick 1)", ["Arvid Lindblad", "Nico Hulkenberg"], index=None, key="signup_g_f")
+                g_g = st.selectbox("GROUP G (Pick 1)", ["Franco Colapinto", "Gabriel Bortoleto"], index=None, key="signup_g_g")
+                g_h = st.selectbox("GROUP H (Pick 1)", ["Sergio Perez", "Valtteri Bottas"], index=None, key="signup_g_h")
 
             with col2:
-                g_i = st.multiselect("GROUP I (Pick 2)", ["Ferrari", "McLaren", "Mercedes"], max_selections=2)
-                g_j = st.selectbox("GROUP J (Pick 1)", ["Aston Martin", "Red Bull"], index=None)
-                g_k = st.selectbox("GROUP K (Pick 1)", ["Alpine", "Williams"], index=None)
-                g_l = st.selectbox("GROUP L (Pick 1)", ["Audi", "Haas"], index=None)
-                g_m = st.selectbox("GROUP M (Pick 1)", ["Cadillac", "Racing Bulls"], index=None)
+                g_i = st.multiselect("GROUP I (Pick 2)", ["Ferrari", "McLaren", "Mercedes"], max_selections=2, key="signup_g_i")
+                g_j = st.selectbox("GROUP J (Pick 1)", ["Aston Martin", "Red Bull"], index=None, key="signup_g_j")
+                g_k = st.selectbox("GROUP K (Pick 1)", ["Alpine", "Williams"], index=None, key="signup_g_k")
+                g_l = st.selectbox("GROUP L (Pick 1)", ["Audi", "Haas"], index=None, key="signup_g_l")
+                g_m = st.selectbox("GROUP M (Pick 1)", ["Cadillac", "Racing Bulls"], index=None, key="signup_g_m")
 
-            rules_check = st.checkbox("I agree to the rules and the £5 / €5 per race fee.")
+            rules_check = st.checkbox("I agree to the rules and the £5 / €5 per race fee.", key="signup_rules")
             
             if st.form_submit_button("Submit Team"):
                 required_selections = [g_c, g_d, g_e, g_f, g_g, g_h, g_j, g_k, g_l, g_m]
