@@ -112,6 +112,17 @@ def show_leaderboard(conn, url):
                 show_player_profile(df, st.query_params["player"])
                 return
 
+            # --- NOTICE BOARD ---
+            try:
+                # Attempt to read from the 'Notices' tab
+                df_notice = conn.read(spreadsheet=url, worksheet="Notices", ttl=0)
+                if not df_notice.empty and 'Message' in df_notice.columns:
+                    msg = str(df_notice.iloc[0]['Message'])
+                    if msg and msg.strip() != "" and msg.lower() != "nan":
+                        st.warning(f"📢 **League Notice:** {msg}")
+            except:
+                pass # Fail silently if the tab doesn't exist yet
+
             # Countdown Header
             session_name, session_date = get_next_f1_session()
             

@@ -19,6 +19,20 @@ def show_admin_panel(conn, url):
             "Qatar", "Abu Dhabi"
         ]
 
+        # --- NOTICE BOARD SECTION ---
+        st.write("### 📢 League Notice Board")
+        notice_msg = st.text_area("Enter a message for the Leaderboard (leave empty to clear):")
+        if st.button("Update Notice"):
+            df_notice = pd.DataFrame({'Message': [notice_msg]})
+            try:
+                conn.update(spreadsheet=url, worksheet="Notices", data=df_notice)
+                st.success("Notice updated! It will now appear on the Leaderboard.")
+            except Exception as e:
+                st.error(f"Error updating notice: {e}")
+                st.info("⚠️ Ensure you have created a tab named 'Notices' in your Google Sheet.")
+        
+        st.divider()
+
         col1, col2 = st.columns(2)
         with col1:
             st.write("### 🏁 Race Operations")
