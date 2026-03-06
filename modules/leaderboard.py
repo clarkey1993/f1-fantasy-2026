@@ -1,9 +1,49 @@
 import streamlit as st
 import pandas as pd
+import ast
 import datetime
 
+def show_player_profile(df, player_name):
+    # Filter for the specific player
+    player_row = df[df['Name'] == player_name]
+    
+    if player_row.empty:
+        st.error(f"Player '{player_name}' not found.")
+        if st.button("Back to Leaderboard"):
+            st.query_params.clear()
+            st.rerun()
+        return
+
+    row = player_row.iloc[0]
+    
+    if st.button("← Back to Leaderboard"):
+        st.query_params.clear()
+        st.rerun()
+
+    st.title(f"🏎️ {row['Nickname']}'s Team")
+    st.write(f"**Manager:** {row['Name']}")
+    
+    if 'Picks' in row and pd.notna(row['Picks']):
+        try:
+            picks_list = ast.literal_eval(row['Picks'])
+            drivers = picks_list[:10]
+            constructors = picks_list[10:]
+            
+            c1, c2 = st.columns(2)
+            with c1:
+                st.subheader("Drivers")
+                for d in drivers:
+                    st.write(f"• {d}")
+            with c2:
+                st.subheader("Constructors")
+                for c in constructors:
+                    st.write(f"• {c}")
+        except:
+            st.error("Could not load picks.")
+    else:
+        st.info("No picks available.")
+
 def show_leaderboard(conn, url):
-    st.header("🏆 2026 League Standings")
     try:
         # 1. Read data from Google Sheets
         df = conn.read(spreadsheet=url, ttl=0)
@@ -29,6 +69,13 @@ def show_leaderboard(conn, url):
             df['Previous Pos'] = df['Previous Pos'].astype(int)
             df['Last Race Pts'] = df['Last Race Pts'].astype(int)
 
+            # --- CHECK FOR DRILL-DOWN VIEW ---
+            # If a player is selected via query param, show their profile instead of the main table
+            if "player" in st.query_params:
+                show_player_profile(df, st.query_params["player"])
+                return
+
+            st.header("🏆 2026 League Standings")
             # --- SECTION A: LATEST RACE RECAP (December Style) ---
             st.subheader("🏁 Latest Race Results")
             col_left, col_right = st.columns(2)
@@ -74,18 +121,22 @@ def show_leaderboard(conn, url):
             
             df_leaderboard['Pos'] = formatted_pos
             
+            # Add Link Column for Drill-down
+            # We create a relative URL query string: ?player=Name
+            df_leaderboard['Team Sheet'] = df_leaderboard['Name'].apply(lambda x: f"?player={x}")
+
             # 5. Column Selection
-            desired_cols = ['Pos', 'Name', 'Nickname', 'Current Score', 'Total Winnings']
+            desired_cols = ['Pos', 'Name', 'Nickname', 'Current Score', 'Total Winnings', 'Team Sheet']
             available_cols = [c for c in desired_cols if c in df_leaderboard.columns]
             
             # 6. Display Main Leaderboard
             st.dataframe(
-                df_leaderboard[available_cols].style.format({
-                    "Total Winnings": "£/€{:.2f}",
-                    "Current Score": "{:,}"
-                }),
+                df_leaderboard[available_cols],
                 hide_index=True,
-                use_container_width=True
+                use_container_width=True,
+                column_config={
+                    "Team Sheet": st.column_config.LinkColumn("Selections", display_text="View Team")
+                }
             )
             
             mod_time = datetime.datetime.now().strftime('%d %b %Y, %H:%M')
