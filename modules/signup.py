@@ -55,6 +55,7 @@ def show_signup_form(conn, url, save_to_gsheet_func):
             st.subheader("2026 Season Selections")
             name = st.text_input("Full Name", key="signup_name")
             nickname = st.text_input("Team Nickname", key="signup_nickname")
+            password = st.text_input("Create a Password", type="password", key="signup_password")
             email = st.text_input("Email", key="signup_email")
             
             col1, col2 = st.columns(2)
@@ -81,7 +82,7 @@ def show_signup_form(conn, url, save_to_gsheet_func):
                 required_selections = [g_c, g_d, g_e, g_f, g_g, g_h, g_j, g_k, g_l, g_m]
                 if not rules_check:
                     st.error("You must agree to the rules to join.")
-                elif None in required_selections or not name or not nickname:
+                elif None in required_selections or not name or not nickname or not password:
                     st.error("Please fill in all fields.")
                 elif len(g_a) != 2 or len(g_b) != 2 or len(g_i) != 2:
                     st.error("Select exactly TWO for Groups A, B, and I.")
@@ -109,7 +110,7 @@ def show_signup_form(conn, url, save_to_gsheet_func):
 
                     new_entry_data = {
                         "Name": name, "Nickname": nickname, "Email": email,
-                        "Picks": str(all_picks), "Current Score": 0, "Total Winnings": 0,
+                        "Password": password, "Picks": str(all_picks), "Current Score": 0, "Total Winnings": 0,
                         "Pos": 0, "Previous Pos": 0, "Last Race Pts": 0
                     }
                     if save_to_gsheet_func(new_entry_data):

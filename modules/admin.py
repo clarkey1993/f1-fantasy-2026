@@ -90,7 +90,7 @@ def show_admin_panel(conn, url):
             if st.button("🗑️ RESET LEAGUE (Wipe Sheet)"):
                 # Reset with the updated column structure
                 empty_df = pd.DataFrame(columns=[
-                    'Name', 'Nickname', 'Email', 'Picks', 'Current Score', 
+                    'Name', 'Nickname', 'Email', 'Password', 'Picks', 'Current Score', 
                     'Total Winnings', 'Pos', 'Previous Pos', 'Last Race Pts'
                 ])
                 conn.update(spreadsheet=url, data=empty_df)

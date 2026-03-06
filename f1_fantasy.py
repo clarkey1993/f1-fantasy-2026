@@ -7,6 +7,7 @@ from streamlit_gsheets import GSheetsConnection
 from modules import leaderboard, signup, admin, ui_styles
 import modules.news as news
 import modules.f1_standings as f1_standings
+import modules.player_dashboard as player_dashboard
 
 # 1. SETUP & CONNECTION
 st.set_page_config(page_title="F1 Fantasy 2026", layout="wide")
@@ -33,7 +34,7 @@ def save_to_gsheet(new_row_dict):
 # 3. UI LAYOUT
 st.title("🏁 F1 Fantasy Championship 2026")
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs([" Leaderboard", "📰 Latest News", "🏎️ F1 Table", "✍️ Rules & Signup", "🛠️ Admin"])
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📊 Leaderboard", "📰 Latest News", "🏎️ F1 Table", "👤 My Team", "✍️ Rules & Signup", "🛠️ Admin"])
 
 # --- TAB 1: LEADERBOARD ---
 with tab1:
@@ -47,10 +48,14 @@ with tab2:
 with tab3:
     f1_standings.show_f1_standings()
 
-# --- TAB 4: SIGNUP ---
+# --- TAB 4: MY TEAM (LOGIN) ---
 with tab4:
+    player_dashboard.show_dashboard(conn, url)
+
+# --- TAB 5: SIGNUP ---
+with tab5:
     signup.show_signup_form(conn, url, save_to_gsheet)
 
-# --- TAB 5: ADMIN ---
-with tab5:
+# --- TAB 6: ADMIN ---
+with tab6:
     admin.show_admin_panel(conn, url)
