@@ -39,17 +39,16 @@ def show_admin_panel(conn, url):
             selected_race = st.selectbox("Select Race to Sync", races_2026)
             
             st.write("#### 💰 Race Payouts (£/€)")
-            p_cols = st.columns(5)
-            w1 = p_cols[0].number_input("1st", value=40, step=5)
-            w2 = p_cols[1].number_input("2nd", value=30, step=5)
-            w3 = p_cols[2].number_input("3rd", value=25, step=5)
-            w4 = p_cols[3].number_input("4th", value=20, step=5)
-            w5 = p_cols[4].number_input("5th", value=15, step=5)
+            p_cols = st.columns(4)
+            w1 = p_cols[0].number_input("1st", value=20, step=5)
+            w2 = p_cols[1].number_input("2nd", value=15, step=5)
+            w3 = p_cols[2].number_input("3rd", value=10, step=5)
+            w_rest = p_cols[3].number_input("4th - 12th", value=5, step=5)
             
             if st.button(f"🔄 Sync {selected_race} & Update Positions"):
                 with st.spinner(f"Syncing {selected_race}..."):
                     # Run Sync via Scoring Engine (Snapshotting happens inside now)
-                    prizes = [w1, w2, w3, w4, w5]
+                    prizes = [w1, w2, w3] + [w_rest] * 9
                     result_msg = scoring_engine.run_sync(conn, url, 2026, selected_race, race_payouts=prizes)
                     
                     if "Successfully" in result_msg:
@@ -65,7 +64,7 @@ def show_admin_panel(conn, url):
             if st.button("🚀 Run System Stress Test"):
                 with st.spinner("Simulating race and testing logic..."):
                     # Use test payouts
-                    test_prizes = [50, 40, 30, 20, 10]
+                    test_prizes = [20, 15, 10] + [5] * 9
                     # Pass is_test=True to bypass FastF1 API
                     msg = scoring_engine.run_sync(conn, url, 2026, "Test Race", race_payouts=test_prizes, is_test=True)
                     
