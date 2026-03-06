@@ -70,7 +70,7 @@ def show_admin_panel(conn, url):
 
         with col2:
             st.write("### 🧪 Pre-Season Testing")
-            st.info("Bypass API and test Sheet connection with mock data.")
+            st.info("Test connection using a random race from the 2024 season.")
             
             if st.button("🚀 Run System Stress Test"):
                 with st.spinner("Simulating race and testing logic..."):

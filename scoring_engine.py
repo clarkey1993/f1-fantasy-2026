@@ -2,6 +2,7 @@ import fastf1
 import pandas as pd
 import os
 import ast
+import random
 
 # Cache setup for fast loading
 if not os.path.exists('f1_cache'):
@@ -23,28 +24,28 @@ def run_sync(conn, url, year, round_name, race_payouts=None, is_test=False):
     try:
         # 1. Get Race Data
         if is_test:
-            results = pd.DataFrame({
-                'Abbreviation': ['VER', 'NOR', 'LEC', 'PIA', 'HAM', 'RUS', 'SAI', 'ALO', 'ANT', 'HUL'],
-                'TeamName': ['Red Bull', 'McLaren', 'Ferrari', 'McLaren', 'Ferrari', 'Mercedes', 'Williams', 'Aston Martin', 'Mercedes', 'Audi'],
-                'GridPosition': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-                'ClassifiedPosition': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-                'Laps': [57] * 10,
-                'Status': ['Finished'] * 10
-            })
-            fastest_lap_driver = "VER"
-            round_name = "STRESS TEST"
+            # Pick a random race from 2024 (last complete season)
+            test_year = 2025
+            schedule = fastf1.get_event_schedule(test_year, include_testing=False)
+            rounds = schedule['RoundNumber'].unique().tolist()
+            random_round = random.choice(rounds)
+            
+            session = fastf1.get_session(test_year, random_round, 'R')
+            session.load(telemetry=False, weather=False)
+            round_name = f"TEST: {session.event['EventName']} {test_year}"
         else:
             session = fastf1.get_session(year, round_name, 'R')
             session.load(telemetry=False, weather=False)
-            results = session.results
             
-            if results.empty:
-                return "No results available yet for this race."
+        results = session.results
+        
+        if results.empty:
+            return f"No results available for {round_name}."
 
-            try:
-                fastest_lap_driver = session.laps.pick_fastest()['Driver']
-            except:
-                fastest_lap_driver = None
+        try:
+            fastest_lap_driver = session.laps.pick_fastest()['Driver']
+        except:
+            fastest_lap_driver = None
 
         # 2. Pull League Data
         df = conn.read(spreadsheet=url, ttl=0)
@@ -71,14 +72,27 @@ def run_sync(conn, url, year, round_name, race_payouts=None, is_test=False):
                     d_data = results[results['Abbreviation'] == abbr]
                     if not d_data.empty:
                         d = d_data.iloc[0]
-                        this_race_total += (21 - int(d['GridPosition'])) # Grid Pts
+                        
+                        # Safely parse positions
+                        try:
+                            grid = int(d['GridPosition'])
+                        except:
+                            grid = 20
+                            
+                        try:
+                            finish = int(d['ClassifiedPosition'])
+                            is_classified = True
+                        except:
+                            finish = 20
+                            is_classified = False
+
+                        this_race_total += (21 - grid) # Grid Pts
                         this_race_total += int(d['Laps']) # Lap Pts
                         
-                        gain = int(d['GridPosition']) - int(d['ClassifiedPosition'])
-                        if gain > 0: this_race_total += gain # Improvement
-                        
-                        if d['Status'] == 'Finished':
-                            this_race_total += points_map.get(int(d['ClassifiedPosition']), 0)
+                        if is_classified:
+                            gain = grid - finish
+                            if gain > 0: this_race_total += gain # Improvement
+                            this_race_total += points_map.get(finish, 0)
                         
                         if abbr == fastest_lap_driver:
                             this_race_total += 25
@@ -90,12 +104,17 @@ def run_sync(conn, url, year, round_name, race_payouts=None, is_test=False):
                 else:
                     t_data = results[results['TeamName'] == pick]
                     if not t_data.empty:
-                        finished_cars = t_data[t_data['Status'] == 'Finished']
+                        # Filter for cars that have a numeric ClassifiedPosition (Finished or +1 Lap etc)
+                        # We use pd.to_numeric with coerce to turn 'R' into NaN, then dropna
+                        classified_cars = t_data.copy()
+                        classified_cars['ClassifiedPosNumeric'] = pd.to_numeric(classified_cars['ClassifiedPosition'], errors='coerce')
+                        finished_cars = classified_cars.dropna(subset=['ClassifiedPosNumeric'])
+                        
                         this_race_total += (len(finished_cars) * 10)
                         
                         if not finished_cars.empty:
-                            best_pos = finished_cars['ClassifiedPosition'].min()
-                            this_race_total += points_map.get(int(best_pos), 0)
+                            best_pos = int(finished_cars['ClassifiedPosNumeric'].min())
+                            this_race_total += points_map.get(best_pos, 0)
                         
                         dq_cars = t_data[t_data['Status'].str.contains("Disqualified|Excluded", na=False)]
                         this_race_total -= (len(dq_cars) * 10)
