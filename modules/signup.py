@@ -1,6 +1,7 @@
 import streamlit as st
 import datetime
 import pandas as pd
+import ast
 
 def show_signup_form(conn, url, save_to_gsheet_func):
     st.header("📜 Rules & Signup")
@@ -86,6 +87,26 @@ def show_signup_form(conn, url, save_to_gsheet_func):
                     st.error("Select exactly TWO for Groups A, B, and I.")
                 else:
                     all_picks = g_a + g_b + [g_c, g_d, g_e, g_f, g_g, g_h] + g_i + [g_j, g_k, g_l, g_m]
+                    
+                    # --- DUPLICATE TEAM CHECK ---
+                    try:
+                        existing_df = conn.read(spreadsheet=url, ttl=0)
+                        if not existing_df.empty and 'Picks' in existing_df.columns:
+                            new_picks_set = set(all_picks)
+                            for _, row in existing_df.iterrows():
+                                if pd.notna(row['Picks']):
+                                    try:
+                                        # Clean smart quotes and parse
+                                        clean_picks = str(row['Picks']).replace('“', '"').replace('”', '"').replace("‘", "'").replace("’", "'")
+                                        existing_picks_list = ast.literal_eval(clean_picks)
+                                        if isinstance(existing_picks_list, list) and set(existing_picks_list) == new_picks_set:
+                                            st.error(f"⚠️ Selection Error: This exact team has already been chosen by '{row['Name']}'. Please change at least 1 pick.")
+                                            return
+                                    except:
+                                        continue
+                    except Exception as e:
+                        st.warning(f"Could not verify uniqueness (Connection Error): {e}")
+
                     new_entry_data = {
                         "Name": name, "Nickname": nickname, "Email": email,
                         "Picks": str(all_picks), "Current Score": 0, "Total Winnings": 0,
