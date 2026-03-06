@@ -52,6 +52,11 @@ def run_sync(conn, url, year, round_name, race_payouts=None, is_test=False):
         if df.empty:
             return "No players found in the sheet."
 
+        # --- SNAPSHOT PREVIOUS POSITIONS ---
+        # Ensure numeric and calculate rank based on score BEFORE adding new points
+        df['Current Score'] = pd.to_numeric(df['Current Score'], errors='coerce').fillna(0)
+        df['Previous Pos'] = df['Current Score'].rank(ascending=False, method='min').fillna(0).astype(int)
+
         points_map = {1:25, 2:18, 3:15, 4:12, 5:10, 6:8, 7:6, 8:4, 9:2, 10:1}
         race_points_this_weekend = [] 
 
@@ -126,7 +131,7 @@ def run_sync(conn, url, year, round_name, race_payouts=None, is_test=False):
         df['Last Race Pts'] = race_points_this_weekend
         
         # Add this weekend's points to the total season score
-        df['Current Score'] = pd.to_numeric(df['Current Score']).fillna(0) + race_points_this_weekend
+        df['Current Score'] = df['Current Score'] + race_points_this_weekend
         
         # Apply Payouts
         if race_payouts:

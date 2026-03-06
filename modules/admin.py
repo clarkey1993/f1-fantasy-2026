@@ -48,17 +48,7 @@ def show_admin_panel(conn, url):
             
             if st.button(f"🔄 Sync {selected_race} & Update Positions"):
                 with st.spinner(f"Syncing {selected_race}..."):
-                    # 1. Snapshot Ranks
-                    df_current = conn.read(spreadsheet=url, ttl=0)
-                    if not df_current.empty:
-                        # Ensure scores are numeric so ranking is correct (100 > 20, not "100" < "20")
-                        df_current['Current Score'] = pd.to_numeric(df_current['Current Score'], errors='coerce').fillna(0)
-                        
-                        # Freeze current positions before adding new race points
-                        df_current['Previous Pos'] = df_current['Current Score'].rank(ascending=False, method='min').fillna(0).astype(int)
-                        conn.update(spreadsheet=url, data=df_current)
-
-                    # 2. Run Sync via Scoring Engine
+                    # Run Sync via Scoring Engine (Snapshotting happens inside now)
                     prizes = [w1, w2, w3, w4, w5]
                     result_msg = scoring_engine.run_sync(conn, url, 2026, selected_race, race_payouts=prizes)
                     
@@ -70,7 +60,7 @@ def show_admin_panel(conn, url):
 
         with col2:
             st.write("### 🧪 Pre-Season Testing")
-            st.info("Test connection using a random race from the 2024 season.")
+            st.info("Test connection using a random race from the 2025 season.")
             
             if st.button("🚀 Run System Stress Test"):
                 with st.spinner("Simulating race and testing logic..."):
