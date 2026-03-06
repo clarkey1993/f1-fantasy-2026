@@ -26,7 +26,7 @@ def show_signup_form(conn, url, save_to_gsheet_func):
         # We still show the rules even when closed
         with st.expander("📜 View 2026 Fantasy League Rules"):
             st.write("""
-            ### 29th Year Rules Summary:
+            ### 2026 Rules Summary:
             * **Entry Fee:** £5 (or Euros).
             * **Team Structure:** 10 Drivers and 6 Constructors.
             * **Starting Grid:** 20 pts for 1st, down to 1 pt for 20th.
