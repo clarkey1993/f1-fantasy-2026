@@ -50,7 +50,7 @@ def show_signup_form(conn, url, save_to_gsheet_func):
             * **Entry:** £5 / €5 entry fee.
             """)
 
-        with st.form("signup_form", clear_on_submit=True):
+        with st.form("signup_form", clear_on_submit=False):
             st.subheader("2026 Season Selections")
             name = st.text_input("Full Name")
             nickname = st.text_input("Team Nickname")
