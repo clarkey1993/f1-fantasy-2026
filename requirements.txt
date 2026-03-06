@@ -1,6 +1,4 @@
 streamlit
-pandas
 streamlit-gsheets
 fastf1
 feedparser
-requests
