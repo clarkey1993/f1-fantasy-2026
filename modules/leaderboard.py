@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import ast
 import datetime
 
 def show_leaderboard(conn, url):
@@ -80,34 +79,14 @@ def show_leaderboard(conn, url):
             available_cols = [c for c in desired_cols if c in df_leaderboard.columns]
             
             # 6. Display Main Leaderboard
-            for index, row in df_leaderboard.iterrows():
-                expander_label = f"{row['Pos']} **{row['Nickname']}** - {row['Current Score']:,} pts"
-                with st.expander(expander_label):
-                    # Display other info and picks inside
-                    st.markdown(f"**Full Name:** {row['Name']}")
-                    st.markdown(f"**Total Winnings:** £/€{row['Total Winnings']:.2f}")
-                    
-                    if 'Picks' in row and pd.notna(row['Picks']):
-                        try:
-                            # The 'Picks' column is a string representation of a list
-                            picks_list = ast.literal_eval(row['Picks'])
-                            drivers = picks_list[:10]
-                            constructors = picks_list[10:]
-                            
-                            p_col1, p_col2 = st.columns(2)
-                            with p_col1:
-                                st.markdown("**Drivers**")
-                                st.dataframe(pd.DataFrame({'Driver': drivers}), hide_index=True, use_container_width=True)
-                            with p_col2:
-                                st.markdown("**Constructors**")
-                                st.dataframe(pd.DataFrame({'Constructor': constructors}), hide_index=True, use_container_width=True)
-
-                        except (ValueError, SyntaxError):
-                            st.warning("Could not display picks for this user (invalid format).")
-                        except Exception as e:
-                            st.warning(f"Picks not available. Error: {e}")
-                    else:
-                        st.info("No picks recorded for this entry.")
+            st.dataframe(
+                df_leaderboard[available_cols].style.format({
+                    "Total Winnings": "£/€{:.2f}",
+                    "Current Score": "{:,}"
+                }),
+                hide_index=True,
+                use_container_width=True
+            )
             
             mod_time = datetime.datetime.now().strftime('%d %b %Y, %H:%M')
             st.caption(f"🕒 Last Updated: {mod_time}")
