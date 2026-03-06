@@ -1,4 +1,6 @@
 streamlit
 pandas
-st-gsheets-connection
+streamlit-gsheets
 fastf1
+feedparser
+requests
