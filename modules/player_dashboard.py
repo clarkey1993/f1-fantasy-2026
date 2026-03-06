@@ -6,6 +6,8 @@ def show_dashboard(conn, url):
     # Initialize session state for user login
     if 'user_nick' not in st.session_state:
         st.session_state.user_nick = None
+    if 'is_admin' not in st.session_state:
+        st.session_state.is_admin = False
 
     # --- NOT LOGGED IN: SHOW LOGIN FORM ---
     if st.session_state.user_nick is None:
@@ -18,6 +20,17 @@ def show_dashboard(conn, url):
             submitted = st.form_submit_button("Log In")
             
             if submitted:
+                # 1. Check for Admin Login
+                try:
+                    admin_pw = st.secrets.get("admin_password", "admin12345")
+                except Exception:
+                    admin_pw = "admin12345"
+
+                if user.strip().lower() == "admin" and pw == admin_pw:
+                    st.session_state.user_nick = "Admin"
+                    st.session_state.is_admin = True
+                    st.rerun()
+
                 try:
                     df = conn.read(spreadsheet=url, ttl=0)
                     
@@ -41,6 +54,17 @@ def show_dashboard(conn, url):
     
     # --- LOGGED IN: SHOW DASHBOARD ---
     else:
+        # Special View for Admin
+        if st.session_state.is_admin:
+            st.title("🔐 Commissioner Access")
+            st.success("You are logged in as Admin.")
+            st.info("Navigate to the '🛠️ Admin' tab to manage the league.")
+            if st.button("Log Out"):
+                st.session_state.user_nick = None
+                st.session_state.is_admin = False
+                st.rerun()
+            return
+
         try:
             # Fetch fresh data for the logged-in user
             df = conn.read(spreadsheet=url, ttl=0)

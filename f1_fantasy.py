@@ -34,28 +34,38 @@ def save_to_gsheet(new_row_dict):
 # 3. UI LAYOUT
 st.title("🏁 F1 Fantasy Championship 2026")
 
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📊 Leaderboard", "📰 Latest News", "🏎️ F1 Table", "👤 My Team", "✍️ Rules & Signup", "🛠️ Admin"])
+# Initialize admin state if not present
+if 'is_admin' not in st.session_state:
+    st.session_state.is_admin = False
+
+# Dynamic Tabs: Only show Admin tab if logged in as Admin
+tabs_list = ["📊 Leaderboard", "📰 Latest News", "🏎️ F1 Table", "👤 My Team", "✍️ Rules & Signup"]
+if st.session_state.is_admin:
+    tabs_list.append("🛠️ Admin")
+
+tabs = st.tabs(tabs_list)
 
 # --- TAB 1: LEADERBOARD ---
-with tab1:
+with tabs[0]:
     leaderboard.show_leaderboard(conn, url)
 
 # --- TAB 2: NEWS ---
-with tab2:
+with tabs[1]:
     news.show_news()
 
 # --- TAB 3: F1 TABLE ---
-with tab3:
+with tabs[2]:
     f1_standings.show_f1_standings()
 
 # --- TAB 4: MY TEAM (LOGIN) ---
-with tab4:
+with tabs[3]:
     player_dashboard.show_dashboard(conn, url)
 
 # --- TAB 5: SIGNUP ---
-with tab5:
+with tabs[4]:
     signup.show_signup_form(conn, url, save_to_gsheet)
 
 # --- TAB 6: ADMIN ---
-with tab6:
-    admin.show_admin_panel(conn, url)
+if st.session_state.is_admin and len(tabs) > 5:
+    with tabs[5]:
+        admin.show_admin_panel(conn, url)
