@@ -5,7 +5,8 @@ import datetime
 
 def show_player_profile(df, player_name):
     # Filter for the specific player
-    player_row = df[df['Name'] == player_name]
+    # Use strip() to handle accidental trailing spaces in names
+    player_row = df[df['Name'].astype(str).str.strip() == str(player_name).strip()]
     
     if player_row.empty:
         st.error(f"Player '{player_name}' not found.")
@@ -25,7 +26,16 @@ def show_player_profile(df, player_name):
     
     if 'Picks' in row and pd.notna(row['Picks']):
         try:
-            picks_list = ast.literal_eval(row['Picks'])
+            # Clean the string to handle "Smart Quotes" or manual entry errors
+            raw_picks = str(row['Picks']).strip()
+            raw_picks = raw_picks.replace('“', '"').replace('”', '"').replace("‘", "'").replace("’", "'")
+            
+            picks_list = ast.literal_eval(raw_picks)
+            
+            if not isinstance(picks_list, list):
+                st.warning("Picks data format is incorrect (not a list).")
+                return
+
             drivers = picks_list[:10]
             constructors = picks_list[10:]
             
@@ -38,8 +48,9 @@ def show_player_profile(df, player_name):
                 st.subheader("Constructors")
                 for c in constructors:
                     st.write(f"• {c}")
-        except:
-            st.error("Could not load picks.")
+        except Exception as e:
+            st.error(f"Could not load picks: {e}")
+            st.caption(f"Raw Data: {row.get('Picks', 'N/A')}")
     else:
         st.info("No picks available.")
 
