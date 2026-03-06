@@ -5,6 +5,8 @@ from streamlit_gsheets import GSheetsConnection
 
 # Import your custom modules
 from modules import leaderboard, signup, admin, ui_styles
+import modules.news as news
+import modules.f1_standings as f1_standings
 
 # 1. SETUP & CONNECTION
 st.set_page_config(page_title="F1 Fantasy 2026", layout="wide")
@@ -31,16 +33,24 @@ def save_to_gsheet(new_row_dict):
 # 3. UI LAYOUT
 st.title("🏁 F1 Fantasy Championship 2026")
 
-tab1, tab2, tab3 = st.tabs(["📊 Leaderboard", "✍️ Rules & Signup", "🛠️ Admin"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs([" Leaderboard", "📰 Latest News", "🏎️ F1 Table", "✍️ Rules & Signup", "🛠️ Admin"])
 
 # --- TAB 1: LEADERBOARD ---
 with tab1:
     leaderboard.show_leaderboard(conn, url)
 
-# --- TAB 2: SIGNUP ---
+# --- TAB 2: NEWS ---
 with tab2:
+    news.show_news()
+
+# --- TAB 3: F1 TABLE ---
+with tab3:
+    f1_standings.show_f1_standings()
+
+# --- TAB 4: SIGNUP ---
+with tab4:
     signup.show_signup_form(conn, url, save_to_gsheet)
 
-# --- TAB 3: ADMIN ---
-with tab3:
+# --- TAB 5: ADMIN ---
+with tab5:
     admin.show_admin_panel(conn, url)
