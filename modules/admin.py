@@ -51,6 +51,9 @@ def show_admin_panel(conn, url):
                     # 1. Snapshot Ranks
                     df_current = conn.read(spreadsheet=url, ttl=0)
                     if not df_current.empty:
+                        # Ensure scores are numeric so ranking is correct (100 > 20, not "100" < "20")
+                        df_current['Current Score'] = pd.to_numeric(df_current['Current Score'], errors='coerce').fillna(0)
+                        
                         # Freeze current positions before adding new race points
                         df_current['Previous Pos'] = df_current['Current Score'].rank(ascending=False, method='min').fillna(0).astype(int)
                         conn.update(spreadsheet=url, data=df_current)
