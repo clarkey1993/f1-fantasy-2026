@@ -39,7 +39,7 @@ def show_signup_form(conn, url, save_to_gsheet_func):
     else:
         with st.expander("📜 View 2026 Fantasy League Rules"):
             st.write("""
-            ### How to Score Points (29th Year Rules):
+            ### How to Score Points:
             * **The Team:** Your 10 drivers and 6 teams form your squad for the **whole of the 2026 season.**
             * **Starting Grid:** Points for actual starting grid positions (20 for 1st, 19 for 2nd... down to 1).
             * **Laps:** 1 point for every lap completed.
