@@ -1,4 +1,5 @@
 import streamlit as st
+import re
 
 def show_news():
     """Fetch and display news from RSS."""
@@ -29,8 +30,14 @@ def show_news():
                 st.subheader(entry.title)
                 st.caption(f"📅 {entry.published}")
                 
+                # Clean up summary text (remove HTML tags and "Keep reading" links)
+                summary_text = entry.summary
+                summary_text = summary_text.replace("<br />", "\n").replace("<br>", "\n")
+                summary_text = re.sub(r'<a\s+class="more".*?>.*?</a>', '', summary_text, flags=re.IGNORECASE)
+                summary_text = re.sub(r'<[^>]+>', '', summary_text)
+                
                 # Display summary text
-                st.write(entry.summary)
+                st.write(summary_text.strip())
                 
                 # Link to full article
                 st.markdown(f"👉 [**Read Full Article**]({entry.link})")
