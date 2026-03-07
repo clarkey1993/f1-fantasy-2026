@@ -6,6 +6,12 @@
         <h1 class="display-4 fw-bold text-danger">🏆 {{ year }} League Standings</h1>
         <p class="lead text-muted">Live updates from the F1 Fantasy League</p>
     </div>
+
+    {% if notice %}
+    <div class="alert alert-warning shadow-sm mb-4" role="alert">
+        📢 <strong>League Notice:</strong> {{ notice }}
+    </div>
+    {% endif %}
     
     <!-- Latest Race Recap Section -->
     <div class="row mb-5">

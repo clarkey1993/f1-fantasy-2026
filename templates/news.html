@@ -1,27 +1,72 @@
 {% extends "layout.html" %}
 
 {% block content %}
-<h2 class="mb-4 border-bottom pb-2">📰 Latest F1 News</h2>
-
-<div class="row">
+<div class="row mb-4 align-items-center">
     <div class="col-md-8">
+        <h2 class="border-bottom pb-2">📰 Latest News & Results</h2>
+    </div>
+    <div class="col-md-4 text-end">
+        {% if countdown %}
+        <div class="card bg-light border-primary">
+            <div class="card-body py-2">
+                <small class="text-muted text-uppercase fw-bold">Next Session</small>
+                <div class="fw-bold text-primary">{{ countdown.name }}</div>
+                <div class="h4 mb-0">{{ countdown.time }}</div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Latest Results Section -->
+{% if results %}
+<div class="card mb-5 shadow-sm">
+    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">🏎️ {{ results.title }}</h5>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+            <thead class="table-light">
+                <tr>
+                    {% for h in results.headers %}
+                    <th>{{ h }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in results.rows %}
+                <tr>
+                    <td>{{ row.pos }}</td>
+                    <td style="background-color: {{ row.color }}; color: {{ row.text_color }}; font-weight: bold;">
+                        {{ row.driver }}
+                    </td>
+                    <td>{{ row.team }}</td>
+                    {% for col in row.cols %}
+                    <td>{{ col }}</td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- News Section -->
+<h3 class="mb-3">🗞️ Breaking News</h3>
+<div class="row">
+    <div class="col-md-12">
         {% for article in articles %}
-        <div class="card mb-4">
+        <div class="card mb-3">
             <div class="card-body">
-                <h4 class="card-title"><a href="{{ article.link }}" target="_blank" class="text-decoration-none text-dark">{{ article.title }}</a></h4>
-                <p class="card-text text-muted">{{ article.summary | striptags | truncate(200) }}</p>
+                <h5 class="card-title"><a href="{{ article.link }}" target="_blank" class="text-decoration-none text-dark">{{ article.title }}</a></h5>
+                <p class="card-text text-muted">{{ article.summary }}</p>
                 <a href="{{ article.link }}" target="_blank" class="btn btn-sm btn-outline-danger">Read Full Article &rarr;</a>
             </div>
         </div>
         {% else %}
         <div class="alert alert-info">News feed is currently unavailable.</div>
         {% endfor %}
-    </div>
-    <div class="col-md-4">
-        <div class="card p-3 bg-light">
-            <h5>📅 Next Race</h5>
-            <p>Check back soon for the live countdown.</p>
-        </div>
     </div>
 </div>
 {% endblock %}

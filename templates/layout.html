@@ -27,18 +27,20 @@
         <div class="collapse navbar-collapse" id="navbarNav">
           <ul class="navbar-nav me-auto">
             <li class="nav-item"><a class="nav-link" href="{{ url_for('home') }}">Leaderboard</a></li>
-            <li class="nav-item"><a class="nav-link" href="{{ url_for('my_team') }}">My Team</a></li>
             <li class="nav-item"><a class="nav-link" href="{{ url_for('news') }}">News</a></li>
             <li class="nav-item"><a class="nav-link" href="{{ url_for('standings') }}">Standings</a></li>
             <li class="nav-item"><a class="nav-link" href="{{ url_for('signup') }}">Rules & Signup</a></li>
           </ul>
           <ul class="navbar-nav">
+            <li class="nav-item"><a class="nav-link" href="{{ url_for('my_team') }}">My Team</a></li>
             {% if session.get('user') %}
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">{{ session['user'] }}</a>
                     <ul class="dropdown-menu dropdown-menu-end">
+                        {% if session['user'] == 'Admin' %}
                         <li><a class="dropdown-item" href="{{ url_for('admin') }}">Admin</a></li>
                         <li><hr class="dropdown-divider"></li>
+                        {% endif %}
                         <li><a class="dropdown-item" href="{{ url_for('logout') }}">Logout</a></li>
                     </ul>
                 </li>

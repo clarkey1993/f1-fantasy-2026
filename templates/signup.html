@@ -5,31 +5,179 @@
     <div class="col-md-8">
         <h2 class="mb-3">✍️ Join the {{ year }} League</h2>
         
+        {% if open %}
+        <div class="alert alert-info fw-bold text-center">
+            ⏳ Countdown: {{ countdown }} until the Grid is set!
+        </div>
+        {% else %}
+        <div class="alert alert-danger fw-bold text-center">
+            🚫 Season Signups are now CLOSED.
+        </div>
+        {% endif %}
+
         <div class="card mb-4">
             <div class="card-body">
                 <h5>📜 Rules Summary</h5>
                 <ul>
-                    <li><strong>Entry Fee:</strong> £5 per race.</li>
-                    <li><strong>Team:</strong> 10 Drivers, 6 Constructors.</li>
-                    <li><strong>Scoring:</strong> Points for Grid, Finishing Pos, Laps, and Overtakes.</li>
+                    <li><strong>The Team:</strong> Your 10 drivers and 6 teams form your squad for the <strong>whole season</strong>.</li>
+                    <li><strong>Starting Grid:</strong> Points for actual starting grid positions (20 for 1st... down to 1).</li>
+                    <li><strong>Laps:</strong> 1 point for every lap completed.</li>
+                    <li><strong>Improvement:</strong> 1 point for every position gained from Grid to Finish.</li>
+                    <li><strong>Finishing:</strong> ONLY if driver/constructor takes the Chequered Flag.</li>
+                    <li><strong>Fastest Lap:</strong> 25 points!</li>
+                    <li><strong>Constructors:</strong> 10 pts for every car that finishes + finishing points for your best car.</li>
+                    <li><strong>Entry:</strong> £5 / €5 per race.</li>
                 </ul>
             </div>
         </div>
 
+        {% if open %}
         <form method="post">
+            <h4 class="mb-3 border-bottom pb-2">👤 Manager Details</h4>
             <div class="row mb-3">
-                <div class="col">
+                <div class="col-md-6 mb-2">
                     <label class="form-label">Full Name</label>
                     <input type="text" class="form-control" name="name" required>
                 </div>
-                <div class="col">
+                <div class="col-md-6 mb-2">
                     <label class="form-label">Team Nickname</label>
                     <input type="text" class="form-control" name="nickname" required>
                 </div>
+                <div class="col-md-6 mb-2">
+                    <label class="form-label">Email</label>
+                    <input type="email" class="form-control" name="email" required>
+                </div>
+                <div class="col-md-6 mb-2">
+                    <label class="form-label">Password</label>
+                    <input type="password" class="form-control" name="password" required>
+                </div>
             </div>
-            <!-- Full selection logic would go here -->
-            <button type="submit" class="btn btn-primary btn-lg w-100">Submit Team (Disabled in Demo)</button>
+
+            <h4 class="mb-3 border-bottom pb-2 mt-4">🏎️ Team Selection</h4>
+            
+            <div class="row">
+                <!-- Drivers Column -->
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">GROUP A (Pick 2)</label>
+                        {% set group_a = ["Charles Leclerc", "George Russell", "Lando Norris", "Max Verstappen"] %}
+                        <select class="form-select mb-2" name="g_a" id="g_a_1">
+                            <option value="" selected disabled>Select Driver 1...</option>
+                            {% for d in group_a %}<option value="{{ d }}">{{ d }}</option>{% endfor %}
+                        </select>
+                        <select class="form-select" name="g_a" id="g_a_2">
+                            <option value="" selected disabled>Select Driver 2...</option>
+                            {% for d in group_a %}<option value="{{ d }}">{{ d }}</option>{% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">GROUP B (Pick 2)</label>
+                        {% set group_b = ["Fernando Alonso", "Kimi Antonelli", "Lewis Hamilton", "Oscar Piastri"] %}
+                        <select class="form-select mb-2" name="g_b" id="g_b_1">
+                            <option value="" selected disabled>Select Driver 1...</option>
+                            {% for d in group_b %}<option value="{{ d }}">{{ d }}</option>{% endfor %}
+                        </select>
+                        <select class="form-select" name="g_b" id="g_b_2">
+                            <option value="" selected disabled>Select Driver 2...</option>
+                            {% for d in group_b %}<option value="{{ d }}">{{ d }}</option>{% endfor %}
+                        </select>
+                    </div>
+
+                    {% set singles = [
+                        ("GROUP C", "g_c", ["Carlos Sainz Jnr", "Isack Hadjar", "Pierre Gasly"]),
+                        ("GROUP D", "g_d", ["Alex Albon", "Lance Stroll"]),
+                        ("GROUP E", "g_e", ["Esteban Ocon", "Liam Lawson", "Oliver Bearman"]),
+                        ("GROUP F", "g_f", ["Arvid Lindblad", "Nico Hulkenberg"]),
+                        ("GROUP G", "g_g", ["Franco Colapinto", "Gabriel Bortoleto"]),
+                        ("GROUP H", "g_h", ["Sergio Perez", "Valtteri Bottas"])
+                    ] %}
+
+                    {% for label, name, opts in singles %}
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">{{ label }} (Pick 1)</label>
+                        <select class="form-select" name="{{ name }}">
+                            <option value="" selected disabled>Select Driver...</option>
+                            {% for opt in opts %}
+                            <option value="{{ opt }}">{{ opt }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- Constructors Column -->
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">GROUP I (Pick 2)</label>
+                        {% set group_i = ["Ferrari", "McLaren", "Mercedes"] %}
+                        <select class="form-select mb-2" name="g_i" id="g_i_1">
+                            <option value="" selected disabled>Select Team 1...</option>
+                            {% for t in group_i %}<option value="{{ t }}">{{ t }}</option>{% endfor %}
+                        </select>
+                        <select class="form-select" name="g_i" id="g_i_2">
+                            <option value="" selected disabled>Select Team 2...</option>
+                            {% for t in group_i %}<option value="{{ t }}">{{ t }}</option>{% endfor %}
+                        </select>
+                    </div>
+
+                    {% set teams = [
+                        ("GROUP J", "g_j", ["Aston Martin", "Red Bull"]),
+                        ("GROUP K", "g_k", ["Alpine", "Williams"]),
+                        ("GROUP L", "g_l", ["Audi", "Haas"]),
+                        ("GROUP M", "g_m", ["Cadillac", "Racing Bulls"])
+                    ] %}
+
+                    {% for label, name, opts in teams %}
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">{{ label }} (Pick 1)</label>
+                        <select class="form-select" name="{{ name }}">
+                            <option value="" selected disabled>Select Team...</option>
+                            {% for opt in opts %}
+                            <option value="{{ opt }}">{{ opt }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="mb-4 mt-3">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="rules" id="rulesCheck" required>
+                    <label class="form-check-label" for="rulesCheck">
+                        I agree to the rules and the £5 / €5 per race fee.
+                    </label>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-lg w-100">Submit Team</button>
         </form>
+        {% endif %}
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    function setupExclusion(id1, id2) {
+        const s1 = document.getElementById(id1);
+        const s2 = document.getElementById(id2);
+        
+        function updateOptions() {
+            // Disable option in s2 if it matches s1's selected value (and isn't empty)
+            Array.from(s2.options).forEach(opt => opt.disabled = (opt.value && opt.value === s1.value));
+            // Disable option in s1 if it matches s2's selected value (and isn't empty)
+            Array.from(s1.options).forEach(opt => opt.disabled = (opt.value && opt.value === s2.value));
+        }
+
+        s1.addEventListener('change', updateOptions);
+        s2.addEventListener('change', updateOptions);
+    }
+
+    // Apply to groups with 2 picks
+    setupExclusion('g_a_1', 'g_a_2');
+    setupExclusion('g_b_1', 'g_b_2');
+    setupExclusion('g_i_1', 'g_i_2');
+});
+</script>
 {% endblock %}

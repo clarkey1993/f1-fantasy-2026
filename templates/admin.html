@@ -8,6 +8,22 @@
     </div>
 </div>
 
+<!-- Notice Board Section -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-info text-dark fw-bold">📢 League Notice Board</div>
+            <div class="card-body">
+                <form action="{{ url_for('admin_notice') }}" method="post">
+                    <label class="form-label">Enter a message for the Leaderboard (leave empty to clear):</label>
+                    <textarea class="form-control mb-3" name="notice_msg" rows="2">{{ notice }}</textarea>
+                    <button type="submit" class="btn btn-info text-white">Update Notice</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="row">
     <!-- Race Sync Section -->
     <div class="col-md-6">
@@ -38,7 +54,7 @@
                             <input type="number" class="form-control" name="p3" value="10" placeholder="3rd">
                         </div>
                         <div class="col-3">
-                            <input type="number" class="form-control" name="p_rest" value="5" placeholder="Rest">
+                            <input type="number" class="form-control" name="p_rest" value="5" placeholder="4th-12th">
                         </div>
                     </div>
 
@@ -57,6 +73,25 @@
                 <form action="{{ url_for('admin_sync') }}" method="post">
                     <input type="hidden" name="action" value="test">
                     <button type="submit" class="btn btn-outline-dark w-100">🚀 Run Stress Test</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Data Management -->
+        <div class="card mt-4">
+            <div class="card-header bg-secondary text-white fw-bold">📂 Data Management</div>
+            <div class="card-body">
+                <a href="{{ url_for('admin_export') }}" class="btn btn-outline-dark w-100">📥 Download League Backup (CSV)</a>
+            </div>
+        </div>
+
+        <!-- Danger Zone -->
+        <div class="card mt-4 border-danger">
+            <div class="card-header bg-danger text-white fw-bold">⚠️ Danger Zone</div>
+            <div class="card-body">
+                <p class="text-danger small">This action cannot be undone.</p>
+                <form action="{{ url_for('admin_reset') }}" method="post" onsubmit="return confirm('Are you sure you want to WIPE the entire league database?');">
+                    <button type="submit" class="btn btn-danger w-100">🗑️ RESET LEAGUE (Wipe Data)</button>
                 </form>
             </div>
         </div>
