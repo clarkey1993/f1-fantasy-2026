@@ -39,7 +39,7 @@ if 'is_admin' not in st.session_state:
     st.session_state.is_admin = False
 
 # Dynamic Tabs: Only show Admin tab if logged in as Admin
-tabs_list = ["📊 Leaderboard", "📰 Latest News", "🏎️ F1 Table", "👤 My Team", "✍️ Rules & Signup"]
+tabs_list = ["📊 Leaderboard", " My Team", " Latest News", "🏎️ F1 Table", "✍️ Rules & Signup"]
 if st.session_state.is_admin:
     tabs_list.append("🛠️ Admin")
 
@@ -49,17 +49,17 @@ tabs = st.tabs(tabs_list)
 with tabs[0]:
     leaderboard.show_leaderboard(conn, url)
 
-# --- TAB 2: NEWS ---
+# --- TAB 2: MY TEAM (LOGIN) ---
 with tabs[1]:
+    player_dashboard.show_dashboard(conn, url)
+
+# --- TAB 3: NEWS ---
+with tabs[2]:
     news.show_news()
 
-# --- TAB 3: F1 TABLE ---
-with tabs[2]:
-    f1_standings.show_f1_standings()
-
-# --- TAB 4: MY TEAM (LOGIN) ---
+# --- TAB 4: F1 TABLE ---
 with tabs[3]:
-    player_dashboard.show_dashboard(conn, url)
+    f1_standings.show_f1_standings()
 
 # --- TAB 5: SIGNUP ---
 with tabs[4]:
