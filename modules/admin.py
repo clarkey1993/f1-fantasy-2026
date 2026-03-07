@@ -88,7 +88,7 @@ def show_admin_panel(conn, url):
             # Reset with the updated column structure
             empty_df = pd.DataFrame(columns=[
                 'Name', 'Nickname', 'Email', 'Password', 'Picks', 'Current Score', 
-                'Total Winnings', 'Pos', 'Previous Pos', 'Last Race Pts'
+                'Total Winnings', 'Pos', 'Previous Pos', 'Last Race Pts', 'Total Spent'
             ])
             conn.update(spreadsheet=url, data=empty_df)
             st.warning("Data wiped!")

@@ -81,10 +81,11 @@ def show_dashboard(conn, url):
             st.divider()
             
             # Key Stats
-            c1, c2, c3 = st.columns(3)
+            c1, c2, c3, c4 = st.columns(4)
             c1.metric("🏆 Rank", f"#{int(user_row['Pos'])}")
             c2.metric("📊 Total Points", int(user_row['Current Score']))
-            c3.metric("💰 Winnings", f"£/€{float(user_row['Total Winnings']):.2f}")
+            c3.metric("💸 Total Spent", f"£/€{float(user_row.get('Total Spent', 0)):.2f}")
+            c4.metric("💰 Winnings", f"£/€{float(user_row['Total Winnings']):.2f}")
             
             st.subheader("🏎️ Your 2026 Lineup")
             if pd.notna(user_row['Picks']):

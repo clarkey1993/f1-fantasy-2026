@@ -149,6 +149,12 @@ def run_sync(conn, url, year, round_name, race_payouts=None, is_test=False):
                 target_rank = i + 1
                 df.loc[df['Weekend_Rank'] == target_rank, 'Total Winnings'] += float(p_amount)
 
+        # Update Total Spent (Entry Fee per race)
+        if 'Total Spent' not in df.columns:
+            df['Total Spent'] = 0.0
+        df['Total Spent'] = pd.to_numeric(df['Total Spent']).fillna(0.0)
+        df['Total Spent'] += 5.0 # Cost per race
+
         # 5. Final Cleanup
         if 'Weekend_Rank' in df.columns:
             df = df.drop(columns=['Weekend_Rank'])

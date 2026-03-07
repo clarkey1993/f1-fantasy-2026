@@ -111,7 +111,7 @@ def show_signup_form(conn, url, save_to_gsheet_func):
                     new_entry_data = {
                         "Name": name, "Nickname": nickname, "Email": email,
                         "Password": password, "Picks": str(all_picks), "Current Score": 0, "Total Winnings": 0,
-                        "Pos": 0, "Previous Pos": 0, "Last Race Pts": 0
+                        "Pos": 0, "Previous Pos": 0, "Last Race Pts": 0, "Total Spent": 0
                     }
                     if save_to_gsheet_func(new_entry_data):
                         st.balloons()
