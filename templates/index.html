@@ -74,7 +74,6 @@
                         <th scope="col">Team Name</th>
                         <th scope="col" class="text-end">Current Score</th>
                         <th scope="col" class="text-end">Total Winnings</th>
-                        <th scope="col" class="text-center">Selections</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -82,15 +81,12 @@
                     <tr>
                         <th scope="row" class="text-nowrap">{{ row['DisplayPos'] }}</th>
                         <td>{{ row['Name'] }}</td>
-                        <td><strong>{{ row['Nickname'] }}</strong></td>
+                        <td><a href="{{ url_for('view_team', nickname=row['Nickname']) }}" class="text-decoration-none fw-bold">{{ row['Nickname'] }}</a></td>
                         <td class="text-end fw-bold">{{ row['Current Score']|int }}</td>
                         <td class="text-end text-success">£{{ "%.2f"|format(row['Total Winnings']) }}</td>
-                        <td class="text-center">
-                            <a href="{{ url_for('view_team', nickname=row['Nickname']) }}" class="btn btn-sm btn-outline-primary">View Team</a>
-                        </td>
                     </tr>
                     {% else %}
-                    <tr><td colspan="6" class="text-center py-4">No data available.</td></tr>
+                    <tr><td colspan="5" class="text-center py-4">No data available.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
