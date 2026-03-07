@@ -159,6 +159,9 @@ def run_sync(conn, url, year, round_name, race_payouts=None, is_test=False):
         if 'Weekend_Rank' in df.columns:
             df = df.drop(columns=['Weekend_Rank'])
 
+        # Update Season Rank (Pos) for the dashboard
+        df['Pos'] = df['Current Score'].rank(ascending=False, method='min').fillna(0).astype(int)
+
         # Keep current order by Season Total for the save
         df = df.sort_values(by=['Current Score', 'Total Winnings'], ascending=False)
         
