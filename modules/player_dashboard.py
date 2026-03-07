@@ -3,6 +3,74 @@ import pandas as pd
 import ast
 import datetime
 
+# --- CONFIGURATION FOR VISUALS ---
+TEAM_CONFIG = {
+    "Ferrari": {"color": "#E80020", "slug": "ferrari"},
+    "McLaren": {"color": "#FF8000", "slug": "mclaren"},
+    "Mercedes": {"color": "#27F4D2", "slug": "mercedes"},
+    "Red Bull": {"color": "#3671C6", "slug": "red-bull-racing"},
+    "Aston Martin": {"color": "#229971", "slug": "aston-martin"},
+    "Alpine": {"color": "#0093CC", "slug": "alpine"},
+    "Williams": {"color": "#64C4FF", "slug": "williams"},
+    "Racing Bulls": {"color": "#6692FF", "slug": "rb"},
+    "Haas": {"color": "#B6BABD", "slug": "haas-f1-team"},
+    "Audi": {"color": "#52E252", "slug": "kick-sauber"}, # Using Sauber assets for Audi placeholder
+    "Cadillac": {"color": "#FFD700", "slug": "f1"}, # Generic placeholder
+}
+
+DRIVER_TEAM_MAP = {
+    "Charles Leclerc": "Ferrari", "Lewis Hamilton": "Ferrari",
+    "George Russell": "Mercedes", "Kimi Antonelli": "Mercedes",
+    "Lando Norris": "McLaren", "Oscar Piastri": "McLaren",
+    "Max Verstappen": "Red Bull", "Sergio Perez": "Red Bull", "Liam Lawson": "Red Bull",
+    "Fernando Alonso": "Aston Martin", "Lance Stroll": "Aston Martin",
+    "Pierre Gasly": "Alpine", "Jack Doohan": "Alpine",
+    "Alex Albon": "Williams", "Carlos Sainz Jnr": "Williams", "Franco Colapinto": "Williams",
+    "Esteban Ocon": "Haas", "Oliver Bearman": "Haas",
+    "Nico Hulkenberg": "Audi", "Gabriel Bortoleto": "Audi", "Valtteri Bottas": "Audi",
+    "Isack Hadjar": "Racing Bulls", "Arvid Lindblad": "Racing Bulls", "Yuki Tsunoda": "Racing Bulls"
+}
+
+def get_team_info(name, is_constructor=False):
+    if is_constructor:
+        team_name = name
+    else:
+        team_name = DRIVER_TEAM_MAP.get(name, "Cadillac")
+    
+    # Handle edge cases or missing teams (partial match)
+    if team_name not in TEAM_CONFIG:
+        for t in TEAM_CONFIG:
+            if t in team_name:
+                team_name = t
+                break
+        else:
+            team_name = "Cadillac" # Fallback
+            
+    return team_name, TEAM_CONFIG.get(team_name, TEAM_CONFIG["Cadillac"])
+
+def render_card(name, is_constructor=False):
+    team_name, config = get_team_info(name, is_constructor)
+    color = config['color']
+    slug = config['slug']
+    
+    # Construct Image URLs (Using standard F1 web assets)
+    logo_url = f"https://media.formula1.com/content/dam/fom-website/teams/2024/{slug}-logo.png.transform/2col/image.png"
+    car_url = f"https://media.formula1.com/d_team_car_fallback_image.png/content/dam/fom-website/teams/2024/{slug}.png.transform/4col/image.png"
+    
+    html = f"""
+    <div style="background-color: {color}; padding: 10px; border-radius: 10px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 6px rgba(0,0,0,0.2); color: white; overflow: hidden; height: 70px;">
+        <div style="display: flex; align-items: center; gap: 10px; z-index: 2;">
+            <img src="{logo_url}" style="width: 35px; height: 35px; object-fit: contain; background: rgba(255,255,255,0.2); border-radius: 50%; padding: 3px;">
+            <div style="line-height: 1.2;">
+                <div style="font-weight: 800; font-size: 15px; text-shadow: 0 1px 2px rgba(0,0,0,0.6);">{name}</div>
+                <div style="font-size: 11px; opacity: 0.95; text-shadow: 0 1px 2px rgba(0,0,0,0.6);">{team_name}</div>
+            </div>
+        </div>
+        <img src="{car_url}" style="height: 55px; object-fit: contain; transform: scale(1.3) translateX(10px);">
+    </div>
+    """
+    return html
+
 def show_dashboard(conn, url):
     # Initialize session state for user login
     if 'user_nick' not in st.session_state:
@@ -123,9 +191,9 @@ def show_dashboard(conn, url):
                     d1, d2 = st.columns(2)
                     for i, d in enumerate(drivers):
                         if i % 2 == 0:
-                            d1.success(f"🏎️ {d}")
+                            d1.markdown(render_card(d, is_constructor=False), unsafe_allow_html=True)
                         else:
-                            d2.success(f"🏎️ {d}")
+                            d2.markdown(render_card(d, is_constructor=False), unsafe_allow_html=True)
                             
                 with col_c:
                     st.markdown("### 🛠️ Constructors")
@@ -133,8 +201,8 @@ def show_dashboard(conn, url):
                     c1, c2 = st.columns(2)
                     for i, c in enumerate(constructors):
                         if i % 2 == 0:
-                            c1.info(f"🔧 {c}")
+                            c1.markdown(render_card(c, is_constructor=True), unsafe_allow_html=True)
                         else:
-                            c2.info(f"🔧 {c}")
+                            c2.markdown(render_card(c, is_constructor=True), unsafe_allow_html=True)
         except Exception as e:
             st.error(f"Error loading dashboard: {e}")
