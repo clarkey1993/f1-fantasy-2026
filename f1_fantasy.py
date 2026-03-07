@@ -39,7 +39,7 @@ if 'is_admin' not in st.session_state:
     st.session_state.is_admin = False
 
 # Dynamic Tabs: Only show Admin tab if logged in as Admin
-tabs_list = ["📊 Leaderboard", " My Team", " Latest News", "🏎️ F1 Table", "✍️ Rules & Signup"]
+tabs_list = ["📊 Leaderboard", "👤 My Team", "📰 Latest News", "🏎️ F1 Table", "✍️ Rules & Signup"]
 if st.session_state.is_admin:
     tabs_list.append("🛠️ Admin")
 

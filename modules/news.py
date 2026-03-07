@@ -14,8 +14,8 @@ def show_news():
         st.code("pip install feedparser")
         return
 
-    # RSS Feed URL (Motorsport.com is a reliable source)
-    rss_url = "https://www.motorsport.com/rss/f1/news/"
+    # RSS Feed URL (Official F1.com Feed)
+    rss_url = "https://www.formula1.com/content/fom-website/en/latest/all.xml"
     
     try:
         feed = feedparser.parse(rss_url)
@@ -28,10 +28,14 @@ def show_news():
         for entry in feed.entries[:10]:
             with st.container():
                 st.subheader(entry.title)
-                st.caption(f"📅 {entry.published}")
                 
                 # Clean up summary text (remove HTML tags and "Keep reading" links)
-                summary_text = entry.summary
+                # Prefer 'content' (longer) over 'summary' (shorter) if available
+                if 'content' in entry and len(entry.content) > 0:
+                    summary_text = entry.content[0].value
+                else:
+                    summary_text = entry.get('summary', '')
+
                 summary_text = summary_text.replace("<br />", "\n").replace("<br>", "\n")
                 summary_text = re.sub(r'<a\s+class="more".*?>.*?</a>', '', summary_text, flags=re.IGNORECASE)
                 summary_text = re.sub(r'<[^>]+>', '', summary_text)
