@@ -561,6 +561,22 @@ def admin_export():
         flash("No data file found to export.", "warning")
         return redirect(url_for('admin'))
 
+@app.route('/admin/reset_scores', methods=['POST'])
+def admin_reset_scores():
+    if 'user' not in session or session['user'] != "Admin":
+        return redirect(url_for('home'))
+        
+    df = get_league_data()
+    if not df.empty:
+        # Reset scoring columns to 0, keep Name/Picks/Email/Password
+        cols = ['Current Score', 'Total Winnings', 'Pos', 'Previous Pos', 'Last Race Pts', 'Total Spent']
+        for c in cols:
+            df[c] = 0
+        save_league_data(df)
+        flash("✅ Season scores and stats have been reset to 0. Teams are preserved.", "success")
+    
+    return redirect(url_for('admin'))
+
 @app.route('/admin/reset', methods=['POST'])
 def admin_reset():
     if 'user' not in session or session['user'] != "Admin":
