@@ -96,15 +96,37 @@ def show_latest_results():
             if 'Q3' in results.columns: # Qualifying
                 cols.extend(['Q1', 'Q2', 'Q3'])
                 # Format times to look cleaner (remove "0 days 00:01:..." junk)
+                def format_quali(row, col):
+                    val = row[col]
+                    if pd.notna(val) and str(val).strip() != "":
+                        return str(val).split('days ')[-1][:-3]
+                    
+                    # Handle missing times (DNF/No Time)
+                    try:
+                        pos = float(row['Position'])
+                    except:
+                        pos = 20.0 # Fallback
+                    
+                    status = str(row['Status']) if pd.notna(row['Status']) else "DNF"
+                    if status.lower() == 'finished': status = "DNF"
+                    
+                    if col == 'Q1': return status
+                    if col == 'Q2' and pos <= 15: return status
+                    if col == 'Q3' and pos <= 10: return status
+                    return ""
+
                 for q in ['Q1', 'Q2', 'Q3']:
-                    results[q] = results[q].apply(lambda x: str(x).split('days ')[-1][:-3] if pd.notna(x) else '')
+                    results[q] = results.apply(lambda row: format_quali(row, q), axis=1)
             elif 'Time' in results.columns: # Race
                 cols.append('Time')
-                results['Time'] = results['Time'].apply(lambda x: str(x).split('days ')[-1][:-3] if pd.notna(x) else '')
+                # If Time is missing (DNF), show the Status (e.g., "Accident", "Engine", "+1 Lap")
+                results['Time'] = results.apply(lambda row: str(row['Time']).split('days ')[-1][:-3] if pd.notna(row['Time']) else str(row['Status']), axis=1)
             
             # Clean up Position (handle DNFs)
             results['Position'] = results['Position'].fillna(results['ClassifiedPosition'])
+            results['Position'] = results['Position'].fillna('DNF')
             results['Position'] = results['Position'].astype(str).replace(r'\.0$', '', regex=True)
+            results['Position'] = results['Position'].replace(['nan', 'R', 'N/C', 'Ret', 'None'], 'DNF')
             
             # --- STYLING: Color rows by Team ---
             fallback_colors = {
