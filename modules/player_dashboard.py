@@ -80,14 +80,32 @@ def show_dashboard(conn, url):
             
             st.divider()
             
-            # Key Stats
-            c1, c2, c3, c4 = st.columns(4)
-            c1.metric("🏆 Rank", f"#{int(user_row['Pos'])}")
-            c2.metric("📊 Total Points", int(user_row['Current Score']))
-            c3.metric("💸 Total Spent", f"£/€{float(user_row.get('Total Spent', 0)):.2f}")
-            c4.metric("💰 Winnings", f"£/€{float(user_row['Total Winnings']):.2f}")
+            # --- ENHANCED STATS DASHBOARD ---
+            st.subheader("📊 Season Performance")
             
-            st.subheader("🏎️ Your 2026 Lineup")
+            # Calculate Deltas and Financials
+            pos = int(user_row['Pos']) if pd.notna(user_row['Pos']) else 0
+            prev_pos = int(user_row['Previous Pos']) if 'Previous Pos' in user_row and pd.notna(user_row['Previous Pos']) else 0
+            rank_delta = prev_pos - pos if prev_pos > 0 else 0
+            
+            current_score = int(user_row['Current Score']) if pd.notna(user_row['Current Score']) else 0
+            last_race_pts = int(user_row['Last Race Pts']) if 'Last Race Pts' in user_row and pd.notna(user_row['Last Race Pts']) else 0
+            
+            total_spent = float(user_row.get('Total Spent', 0))
+            total_winnings = float(user_row['Total Winnings']) if pd.notna(user_row['Total Winnings']) else 0.0
+            net_profit = total_winnings - total_spent
+
+            # Display Metrics with Deltas
+            m1, m2, m3, m4 = st.columns(4)
+            m1.metric("🏆 League Rank", f"#{pos}", delta=rank_delta, delta_color="normal")
+            m2.metric("🏁 Total Points", current_score, delta=f"+{last_race_pts} last race")
+            m3.metric("💸 Net Profit", f"£/€{net_profit:.2f}", delta=None)
+            m4.metric("💰 Total Winnings", f"£/€{total_winnings:.2f}")
+            
+            st.divider()
+
+            # --- VISUAL TEAM GARAGE ---
+            st.subheader("🏎️ Your 2026 Garage")
             if pd.notna(user_row['Picks']):
                 raw_picks = str(user_row['Picks']).strip().replace('“', '"').replace('”', '"').replace("‘", "'").replace("’", "'")
                 picks = ast.literal_eval(raw_picks)
@@ -96,9 +114,25 @@ def show_dashboard(conn, url):
                 constructors = picks[10:]
                 
                 col_d, col_c = st.columns(2)
+                
                 with col_d:
-                    st.info("**Drivers**\n\n" + "\n".join([f"• {d}" for d in drivers]))
+                    st.markdown("### 🧑‍✈️ Drivers")
+                    # Split drivers into two sub-columns for a grid look
+                    d1, d2 = st.columns(2)
+                    for i, d in enumerate(drivers):
+                        if i % 2 == 0:
+                            d1.success(f"🏎️ {d}")
+                        else:
+                            d2.success(f"🏎️ {d}")
+                            
                 with col_c:
-                    st.success("**Constructors**\n\n" + "\n".join([f"• {c}" for c in constructors]))
+                    st.markdown("### 🛠️ Constructors")
+                    # Split constructors into two sub-columns
+                    c1, c2 = st.columns(2)
+                    for i, c in enumerate(constructors):
+                        if i % 2 == 0:
+                            c1.info(f"🔧 {c}")
+                        else:
+                            c2.info(f"🔧 {c}")
         except Exception as e:
             st.error(f"Error loading dashboard: {e}")
