@@ -6,8 +6,18 @@
     <title>{{ title }} | F1 Fantasy {{ year }}</title>
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script>
+      // Apply system theme preference automatically
+      const updateTheme = () => {
+        const mode = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-bs-theme', mode);
+      };
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', updateTheme);
+      updateTheme();
+    </script>
     <style>
-        body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        [data-bs-theme="light"] body { background-color: #f8f9fa; } /* Only use light gray in light mode */
         .navbar { background-color: #e10600; box-shadow: 0 2px 4px rgba(0,0,0,0.2); } /* F1 Red */
         .navbar-brand, .nav-link { color: white !important; font-weight: 700; }
         .nav-link:hover { color: #ffcccc !important; }
