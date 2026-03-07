@@ -15,7 +15,7 @@ def show_dashboard(conn, url):
         st.caption("Access your private dashboard to see your team and stats.")
         
         with st.form("login_form"):
-            user = st.text_input("Team Nickname")
+            user = st.text_input("Email Address")
             pw = st.text_input("Password", type="password")
             submitted = st.form_submit_button("Log In")
             
@@ -38,7 +38,7 @@ def show_dashboard(conn, url):
                         st.error("System Error: Password column missing in database. Please ask Admin to reset the sheet.")
                     else:
                         # Find user (case-insensitive search)
-                        user_row = df[df['Nickname'].astype(str).str.strip().str.lower() == user.strip().lower()]
+                        user_row = df[df['Email'].astype(str).str.strip().str.lower() == user.strip().lower()]
                         
                         if not user_row.empty:
                             stored_pw = str(user_row.iloc[0]['Password'])
