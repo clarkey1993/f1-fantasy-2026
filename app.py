@@ -381,7 +381,7 @@ def news():
                 "title": entry.title, "link": entry.link, "summary": summary.strip()
             })
 
-    return render_template('news.html', title="News", countdown=countdown, results=results, articles=articles)
+    return render_template('news.html', title="Latest News & Results", countdown=countdown, results=results, articles=articles)
 
 @app.route('/standings')
 def standings():
