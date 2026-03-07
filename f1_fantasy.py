@@ -10,7 +10,7 @@ import modules.f1_standings as f1_standings
 import modules.player_dashboard as player_dashboard
 
 # 1. SETUP & CONNECTION
-st.set_page_config(page_title="F1 Fantasy 2026", layout="wide")
+st.set_page_config(page_title="F1 Fantasy 2026", layout="wide", initial_sidebar_state="expanded")
 
 # Apply the theme (CSS is now handled inside ui_styles.py)
 ui_styles.apply_custom_styles()
@@ -32,40 +32,32 @@ def save_to_gsheet(new_row_dict):
         return False
 
 # 3. UI LAYOUT
-st.title("🏁 F1 Fantasy Championship 2026")
-
 # Initialize admin state if not present
 if 'is_admin' not in st.session_state:
     st.session_state.is_admin = False
 
-# Dynamic Tabs: Only show Admin tab if logged in as Admin
-tabs_list = ["📊 Leaderboard", "👤 My Team", "📰 Latest News", "🏎️ F1 Table", "✍️ Rules & Signup"]
-if st.session_state.is_admin:
-    tabs_list.append("🛠️ Admin")
+# Sidebar Navigation
+with st.sidebar:
+    st.title("🏎️ F1 Fantasy '26")
+    st.markdown("---")
+    st.markdown("### 🧭 Menu")
 
-tabs = st.tabs(tabs_list)
+    nav_options = ["📊 Leaderboard", "👤 My Team", "📰 Latest News", "🏎️ F1 Table", "✍️ Rules & Signup"]
+    if st.session_state.is_admin:
+        nav_options.append("🛠️ Admin")
 
-# --- TAB 1: LEADERBOARD ---
-with tabs[0]:
+    selection = st.radio("Go to", nav_options, label_visibility="collapsed")
+
+# --- PAGE ROUTING ---
+if selection == "📊 Leaderboard":
     leaderboard.show_leaderboard(conn, url)
-
-# --- TAB 2: MY TEAM (LOGIN) ---
-with tabs[1]:
+elif selection == "👤 My Team":
     player_dashboard.show_dashboard(conn, url)
-
-# --- TAB 3: NEWS ---
-with tabs[2]:
+elif selection == "📰 Latest News":
     news.show_news()
-
-# --- TAB 4: F1 TABLE ---
-with tabs[3]:
+elif selection == "🏎️ F1 Table":
     f1_standings.show_f1_standings()
-
-# --- TAB 5: SIGNUP ---
-with tabs[4]:
+elif selection == "✍️ Rules & Signup":
     signup.show_signup_form(conn, url, save_to_gsheet)
-
-# --- TAB 6: ADMIN ---
-if st.session_state.is_admin and len(tabs) > 5:
-    with tabs[5]:
-        admin.show_admin_panel(conn, url)
+elif selection == "🛠️ Admin":
+    admin.show_admin_panel(conn, url)
