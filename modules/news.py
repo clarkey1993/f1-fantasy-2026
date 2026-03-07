@@ -1,9 +1,138 @@
 import streamlit as st
 import re
+import fastf1
+import pandas as pd
+import datetime
+
+@st.cache_data(ttl=3600)
+def get_next_f1_session():
+    try:
+        # Enable cache for speed
+        fastf1.Cache.enable_cache('f1_cache')
+        
+        now = datetime.datetime.now(datetime.timezone.utc)
+        schedule = fastf1.get_event_schedule(now.year, include_testing=False)
+        
+        for _, event in schedule.iterrows():
+            for i in range(1, 6):
+                date_col = f'Session{i}DateUtc'
+                name_col = f'Session{i}'
+                
+                if date_col in event and pd.notna(event[date_col]):
+                    s_date = event[date_col]
+                    if s_date.tzinfo is None:
+                        s_date = s_date.replace(tzinfo=datetime.timezone.utc)
+                    
+                    if s_date > now:
+                        return f"{event['EventName']} - {event[name_col]}", s_date
+        return None, None
+    except:
+        return None, None
+
+def show_latest_results():
+    """Fetch and display the latest session results."""
+    st.subheader("🏎️ Latest Session Results")
+    
+    with st.spinner("Loading latest track data..."):
+        try:
+            # Ensure cache is enabled
+            fastf1.Cache.enable_cache('f1_cache')
+            
+            now = datetime.datetime.now(datetime.timezone.utc)
+            year = now.year
+            
+            # Get schedule
+            schedule = fastf1.get_event_schedule(year, include_testing=False)
+            
+            # Fallback to previous year if early in the season
+            first_session = schedule['Session1DateUtc'].min() if not schedule.empty else None
+            if first_session and first_session.tzinfo is None:
+                first_session = first_session.replace(tzinfo=datetime.timezone.utc)
+
+            if schedule.empty or (first_session and first_session > now):
+                year -= 1
+                schedule = fastf1.get_event_schedule(year, include_testing=False)
+            
+            # Find the absolute latest session that has occurred
+            past_sessions = []
+            for i, row in schedule.iterrows():
+                for s_num in range(1, 6):
+                    date_col = f'Session{s_num}DateUtc'
+                    name_col = f'Session{s_num}'
+                    if date_col in row and pd.notna(row[date_col]):
+                        s_date = row[date_col]
+                        if s_date.tzinfo is None:
+                            s_date = s_date.replace(tzinfo=datetime.timezone.utc)
+                        if s_date < now:
+                            past_sessions.append({
+                                'date': s_date,
+                                'round': row['RoundNumber'],
+                                'name': row[name_col],
+                                'event': row['EventName']
+                            })
+            
+            if not past_sessions:
+                st.info("No recent results available.")
+                return
+
+            # Sort by date and pick the latest one
+            latest = sorted(past_sessions, key=lambda x: x['date'])[-1]
+            
+            # Load the session
+            session = fastf1.get_session(year, latest['round'], latest['name'])
+            session.load(telemetry=False, weather=False, messages=False)
+            
+            st.markdown(f"**📍 {session.event.EventName} - {session.name}**")
+            
+            results = session.results
+            if results.empty:
+                st.warning("Data processing... Results not yet available.")
+                return
+            
+            # Select and Format Columns
+            cols = ['Position', 'FullName', 'TeamName']
+            
+            # Add timing columns based on session type
+            if 'Q3' in results.columns: # Qualifying
+                cols.extend(['Q1', 'Q2', 'Q3'])
+                # Format times to look cleaner (remove "0 days 00:01:..." junk)
+                for q in ['Q1', 'Q2', 'Q3']:
+                    results[q] = results[q].apply(lambda x: str(x).split('days ')[-1][:-3] if pd.notna(x) else '')
+            elif 'Time' in results.columns: # Race
+                cols.append('Time')
+                results['Time'] = results['Time'].apply(lambda x: str(x).split('days ')[-1][:-3] if pd.notna(x) else '')
+            
+            # Clean up Position (handle DNFs)
+            results['Position'] = results['Position'].fillna(results['ClassifiedPosition'])
+            results['Position'] = results['Position'].astype(str).replace(r'\.0$', '', regex=True)
+            
+            st.dataframe(results[cols], hide_index=True, use_container_width=True)
+            
+        except Exception as e:
+            st.error(f"Could not load results: {e}")
 
 def show_news():
     """Fetch and display news from RSS."""
-    st.header("📰 Latest Formula 1 News")
+    
+    # Countdown Header
+    session_name, session_date = get_next_f1_session()
+    
+    c1, c2 = st.columns([3, 1])
+    with c1:
+        st.header("📰 Latest News & Results")
+    with c2:
+        if session_name and session_date:
+            delta = session_date - datetime.datetime.now(datetime.timezone.utc)
+            days = delta.days
+            hours, rem = divmod(delta.seconds, 3600)
+            mins, _ = divmod(rem, 60)
+            st.metric(label=f"🔜 {session_name}", value=f"{days}d {hours}h {mins}m")
+    
+    # 1. Show Results Table First
+    show_latest_results()
+    
+    st.divider()
+    st.subheader("🗞️ Breaking News")
     
     # Check for library installation inside the function to prevent app crash
     try:

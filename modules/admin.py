@@ -8,7 +8,8 @@ def show_admin_panel(conn, url):
     st.success("Welcome back, Commissioner!")
     st.divider()
     
-    races_2026 = [
+    current_year = datetime.datetime.now().year
+    races_list = [
         "Australia", "China", "Japan", "Bahrain", "Saudi Arabia", "Miami", 
         "Canada", "Monaco", "Barcelona-Catalunya", "Austria", "Great Britain", 
         "Belgium", "Hungary", "Netherlands", "Italy", "Spain", "Azerbaijan", 
@@ -33,7 +34,7 @@ def show_admin_panel(conn, url):
     col1, col2 = st.columns(2)
     with col1:
         st.write("### 🏁 Race Operations")
-        selected_race = st.selectbox("Select Race to Sync", races_2026)
+        selected_race = st.selectbox("Select Race to Sync", races_list)
         
         st.write("#### 💰 Race Payouts (£/€)")
         p_cols = st.columns(4)
@@ -46,7 +47,7 @@ def show_admin_panel(conn, url):
             with st.spinner(f"Syncing {selected_race}..."):
                 # Run Sync via Scoring Engine (Snapshotting happens inside now)
                 prizes = [w1, w2, w3] + [w_rest] * 9
-                result_msg = scoring_engine.run_sync(conn, url, 2026, selected_race, race_payouts=prizes)
+                result_msg = scoring_engine.run_sync(conn, url, current_year, selected_race, race_payouts=prizes)
                 
                 if "Successfully" in result_msg:
                     st.balloons()
@@ -63,7 +64,7 @@ def show_admin_panel(conn, url):
                 # Use test payouts
                 test_prizes = [20, 15, 10] + [5] * 9
                 # Pass is_test=True to bypass FastF1 API
-                msg = scoring_engine.run_sync(conn, url, 2026, "Test Race", race_payouts=test_prizes, is_test=True)
+                msg = scoring_engine.run_sync(conn, url, current_year, "Test Race", race_payouts=test_prizes, is_test=True)
                 
                 if "Successfully" in msg:
                     st.toast("Test Successful!", icon="✅")

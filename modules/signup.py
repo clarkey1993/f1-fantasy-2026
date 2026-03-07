@@ -7,8 +7,9 @@ def show_signup_form(conn, url, save_to_gsheet_func):
     st.header("📜 Rules & Signup")
 
     # 1. Calculate Countdown
-    # Deadline: Saturday March 8, 2026 at 5:00 AM UK Time
-    deadline = datetime.datetime(2026, 3, 8, 5, 0)
+    # Deadline: Saturday March 8 at 5:00 AM UK Time (Current Year)
+    current_year = datetime.datetime.now().year
+    deadline = datetime.datetime(current_year, 3, 8, 5, 0)
     now = datetime.datetime.now()
     
     if now < deadline:
@@ -16,18 +17,18 @@ def show_signup_form(conn, url, save_to_gsheet_func):
         days = time_left.days
         hours, remainder = divmod(time_left.seconds, 3600)
         minutes, _ = divmod(remainder, 60)
-        st.info(f"⏳ **Countdown!!:** {days}d {hours}h {minutes}m until the 2026 Grid is set!")
+        st.info(f"⏳ **Countdown!!:** {days}d {hours}h {minutes}m until the {current_year} Grid is set!")
     
     # 2. Check if Signups are open (Uses the automatic clock)
     signups_open_auto = now < deadline
 
     if not signups_open_auto:
-        st.error("🚫 Season Signups are now CLOSED. The 2026 Grid is locked! (Deadline: March 8, 05:00 AM)")
+        st.error(f"🚫 Season Signups are now CLOSED. The {current_year} Grid is locked! (Deadline: March 8, 05:00 AM)")
         
         # We still show the rules even when closed
-        with st.expander("📜 View 2026 Fantasy League Rules"):
-            st.write("""
-            ### 2026 Rules Summary:
+        with st.expander(f"📜 View {current_year} Fantasy League Rules"):
+            st.write(f"""
+            ### {current_year} Rules Summary:
             * **Entry Fee:** £5 (or Euros).
             * **Team Structure:** 10 Drivers and 6 Constructors.
             * **Starting Grid:** 20 pts for 1st, down to 1 pt for 20th.
@@ -38,10 +39,10 @@ def show_signup_form(conn, url, save_to_gsheet_func):
             * **Constructors:** 10 pts per car finished; only your highest-placed car scores finishing position points.
             """)
     else:
-        with st.expander("📜 View 2026 Fantasy League Rules"):
-            st.write("""
+        with st.expander(f"📜 View {current_year} Fantasy League Rules"):
+            st.write(f"""
             ### How to Score Points:
-            * **The Team:** Your 10 drivers and 6 teams form your squad for the **whole of the 2026 season.**
+            * **The Team:** Your 10 drivers and 6 teams form your squad for the **whole of the {current_year} season.**
             * **Starting Grid:** Points for actual starting grid positions (20 for 1st, 19 for 2nd... down to 1).
             * **Laps:** 1 point for every lap completed.
             * **Improvement:** 1 point for every position gained from Grid to Finish.
@@ -52,7 +53,7 @@ def show_signup_form(conn, url, save_to_gsheet_func):
             """)
 
         with st.form("signup_form", clear_on_submit=False):
-            st.subheader("2026 Season Selections")
+            st.subheader(f"{current_year} Season Selections")
             name = st.text_input("Full Name", key="signup_name")
             nickname = st.text_input("Team Nickname", key="signup_nickname")
             password = st.text_input("Create a Password", type="password", key="signup_password")
@@ -115,4 +116,4 @@ def show_signup_form(conn, url, save_to_gsheet_func):
                     }
                     if save_to_gsheet_func(new_entry_data):
                         st.balloons()
-                        st.success(f"✅ Registration successful! Good luck for the 2026 season.")
+                        st.success(f"✅ Registration successful! Good luck for the {current_year} season.")

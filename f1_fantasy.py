@@ -10,7 +10,8 @@ import modules.f1_standings as f1_standings
 import modules.player_dashboard as player_dashboard
 
 # 1. SETUP & CONNECTION
-st.set_page_config(page_title="F1 Fantasy 2026", layout="wide", initial_sidebar_state="collapsed")
+current_year = datetime.datetime.now().year
+st.set_page_config(page_title=f"F1 Fantasy {current_year}", layout="wide", initial_sidebar_state="collapsed")
 
 # Apply the theme (CSS is now handled inside ui_styles.py)
 ui_styles.apply_custom_styles()
@@ -38,22 +39,26 @@ if 'is_admin' not in st.session_state:
 
 # Sidebar Navigation
 with st.sidebar:
-    st.title("🏎️ F1 Fantasy '26")
+    # Make title clickable (Home Button)
+    if st.button(f"🏎️ F1 Fantasy {current_year}", use_container_width=True):
+        st.session_state.nav_selection = "📊 Leaderboard"
+        st.rerun()
+
     st.markdown("---")
     st.markdown("### 🧭 Menu")
 
-    nav_options = ["📊 Leaderboard", "👤 My Team", "📰 Latest News", "🏎️ F1 Table", "✍️ Rules & Signup"]
+    nav_options = ["📊 Leaderboard", "👤 My Team", "📰 Latest News & Results", "🏎️ F1 Table", "✍️ Rules & Signup"]
     if st.session_state.is_admin:
         nav_options.append("🛠️ Admin")
 
-    selection = st.radio("Go to", nav_options, label_visibility="collapsed")
+    selection = st.radio("Go to", nav_options, label_visibility="collapsed", key="nav_selection")
 
 # --- PAGE ROUTING ---
 if selection == "📊 Leaderboard":
     leaderboard.show_leaderboard(conn, url)
 elif selection == "👤 My Team":
     player_dashboard.show_dashboard(conn, url)
-elif selection == "📰 Latest News":
+elif selection == "📰 Latest News & Results":
     news.show_news()
 elif selection == "🏎️ F1 Table":
     f1_standings.show_f1_standings()

@@ -2,32 +2,6 @@ import streamlit as st
 import pandas as pd
 import ast
 import datetime
-import fastf1
-
-@st.cache_data(ttl=3600)
-def get_next_f1_session():
-    try:
-        # Enable cache for speed
-        fastf1.Cache.enable_cache('f1_cache')
-        
-        now = datetime.datetime.now(datetime.timezone.utc)
-        schedule = fastf1.get_event_schedule(now.year, include_testing=False)
-        
-        for _, event in schedule.iterrows():
-            for i in range(1, 6):
-                date_col = f'Session{i}DateUtc'
-                name_col = f'Session{i}'
-                
-                if date_col in event and pd.notna(event[date_col]):
-                    s_date = event[date_col]
-                    if s_date.tzinfo is None:
-                        s_date = s_date.replace(tzinfo=datetime.timezone.utc)
-                    
-                    if s_date > now:
-                        return f"{event['EventName']} - {event[name_col]}", s_date
-        return None, None
-    except:
-        return None, None
 
 def show_player_profile(df, player_name):
     # Filter for the specific player
@@ -123,19 +97,8 @@ def show_leaderboard(conn, url):
             except:
                 pass # Fail silently if the tab doesn't exist yet
 
-            # Countdown Header
-            session_name, session_date = get_next_f1_session()
-            
-            c1, c2 = st.columns([3, 1])
-            with c1:
-                st.header("🏆 2026 League Standings")
-            with c2:
-                if session_name and session_date:
-                    delta = session_date - datetime.datetime.now(datetime.timezone.utc)
-                    days = delta.days
-                    hours, rem = divmod(delta.seconds, 3600)
-                    mins, _ = divmod(rem, 60)
-                    st.metric(label=f"🔜 {session_name}", value=f"{days}d {hours}h {mins}m")
+            current_year = datetime.datetime.now().year
+            st.header(f"🏆 {current_year} League Standings")
 
             # --- SECTION A: LATEST RACE RECAP (December Style) ---
             st.subheader("🏁 Latest Race Results")

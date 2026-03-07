@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import ast
+import datetime
 
 def show_dashboard(conn, url):
     # Initialize session state for user login
@@ -105,7 +106,8 @@ def show_dashboard(conn, url):
             st.divider()
 
             # --- VISUAL TEAM GARAGE ---
-            st.subheader("🏎️ Your 2026 Garage")
+            current_year = datetime.datetime.now().year
+            st.subheader(f"🏎️ Your {current_year} Garage")
             if pd.notna(user_row['Picks']):
                 raw_picks = str(user_row['Picks']).strip().replace('“', '"').replace('”', '"').replace("‘", "'").replace("’", "'")
                 picks = ast.literal_eval(raw_picks)

@@ -25,7 +25,7 @@ def run_sync(conn, url, year, round_name, race_payouts=None, is_test=False):
         # 1. Get Race Data
         if is_test:
             # Pick a random race from 2024 (last complete season)
-            test_year = 2025
+            test_year = year - 1
             schedule = fastf1.get_event_schedule(test_year, include_testing=False)
             rounds = schedule['RoundNumber'].unique().tolist()
             random_round = random.choice(rounds)
