@@ -1,0 +1,27 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<h2 class="mb-4 border-bottom pb-2">📰 Latest F1 News</h2>
+
+<div class="row">
+    <div class="col-md-8">
+        {% for article in articles %}
+        <div class="card mb-4">
+            <div class="card-body">
+                <h4 class="card-title"><a href="{{ article.link }}" target="_blank" class="text-decoration-none text-dark">{{ article.title }}</a></h4>
+                <p class="card-text text-muted">{{ article.summary | striptags | truncate(200) }}</p>
+                <a href="{{ article.link }}" target="_blank" class="btn btn-sm btn-outline-danger">Read Full Article &rarr;</a>
+            </div>
+        </div>
+        {% else %}
+        <div class="alert alert-info">News feed is currently unavailable.</div>
+        {% endfor %}
+    </div>
+    <div class="col-md-4">
+        <div class="card p-3 bg-light">
+            <h5>📅 Next Race</h5>
+            <p>Check back soon for the live countdown.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

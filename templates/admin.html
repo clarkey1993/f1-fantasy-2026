@@ -1,0 +1,65 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12 mb-4">
+        <h2 class="border-bottom pb-2">🔐 Commissioner Panel</h2>
+        <p class="text-muted">Manage race results and league scoring.</p>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Race Sync Section -->
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header bg-danger text-white fw-bold">🏁 Race Operations</div>
+            <div class="card-body">
+                <form action="{{ url_for('admin_sync') }}" method="post">
+                    <input type="hidden" name="action" value="sync">
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Select Race to Sync</label>
+                        <select class="form-select" name="race_name">
+                            {% for race in races %}
+                            <option value="{{ race }}">{{ race }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <label class="form-label">Race Payouts (£/€)</label>
+                    <div class="row g-2 mb-4">
+                        <div class="col-3">
+                            <input type="number" class="form-control" name="p1" value="20" placeholder="1st">
+                        </div>
+                        <div class="col-3">
+                            <input type="number" class="form-control" name="p2" value="15" placeholder="2nd">
+                        </div>
+                        <div class="col-3">
+                            <input type="number" class="form-control" name="p3" value="10" placeholder="3rd">
+                        </div>
+                        <div class="col-3">
+                            <input type="number" class="form-control" name="p_rest" value="5" placeholder="Rest">
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100">🔄 Sync Race & Update Standings</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Testing Section -->
+    <div class="col-md-6">
+        <div class="card h-100 border-warning">
+            <div class="card-header bg-warning text-dark fw-bold">🧪 System Testing</div>
+            <div class="card-body">
+                <p>Run a simulation using a random race from last season to test the scoring engine.</p>
+                <form action="{{ url_for('admin_sync') }}" method="post">
+                    <input type="hidden" name="action" value="test">
+                    <button type="submit" class="btn btn-outline-dark w-100">🚀 Run Stress Test</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
