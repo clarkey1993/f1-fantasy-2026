@@ -49,7 +49,24 @@ def apply_custom_styles():
                 transform: scale(1.02);
             }
 
-            /* 5. UTILS */
+            /* 5. SIDEBAR HOME BUTTON (Transparent) */
+            [data-testid="stSidebar"] .stButton > button {
+                background-color: transparent;
+                color: #ffffff;
+                border: none;
+                font-size: 22px;
+                font-weight: 800;
+                text-align: left;
+                justify-content: flex-start;
+                padding-left: 0;
+            }
+            [data-testid="stSidebar"] .stButton > button:hover {
+                background-color: transparent;
+                color: #e10600;
+                transform: none;
+            }
+
+            /* 6. UTILS */
             footer { visibility: hidden; }
         </style>
         """, unsafe_allow_html=True)
