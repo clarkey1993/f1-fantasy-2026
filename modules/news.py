@@ -118,9 +118,11 @@ def show_latest_results():
                 for q in ['Q1', 'Q2', 'Q3']:
                     results[q] = results.apply(lambda row: format_quali(row, q), axis=1)
             elif 'Time' in results.columns: # Race
-                cols.append('Time')
+                cols.extend(['Time', 'Points'])
                 # If Time is missing (DNF), show the Status (e.g., "Accident", "Engine", "+1 Lap")
                 results['Time'] = results.apply(lambda row: str(row['Time']).split('days ')[-1][:-3] if pd.notna(row['Time']) else str(row['Status']), axis=1)
+                # Format Points to remove decimals (e.g. "25.0" -> "25")
+                results['Points'] = results['Points'].astype(str).replace(r'\.0$', '', regex=True)
             
             # Clean up Position (handle DNFs)
             results['Position'] = results['Position'].fillna(results['ClassifiedPosition'])
