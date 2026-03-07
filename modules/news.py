@@ -106,7 +106,46 @@ def show_latest_results():
             results['Position'] = results['Position'].fillna(results['ClassifiedPosition'])
             results['Position'] = results['Position'].astype(str).replace(r'\.0$', '', regex=True)
             
-            st.dataframe(results[cols], hide_index=True, use_container_width=True)
+            # --- STYLING: Color rows by Team ---
+            fallback_colors = {
+                "Red Bull Racing": "#3671C6", "Mercedes": "#27F4D2", "Ferrari": "#E80020",
+                "McLaren": "#FF8000", "Aston Martin": "#229971", "Alpine": "#0093CC",
+                "Williams": "#64C4FF", "RB": "#6692FF", "Haas F1 Team": "#B6BABD",
+                "Kick Sauber": "#52E252", "Sauber": "#52E252", "Audi": "#52E252"
+            }
+
+            def style_rows(row):
+                idx = row.name
+                team_name = results.loc[idx, 'TeamName']
+                
+                # Try FastF1 color first
+                hex_color = None
+                if 'TeamColor' in results.columns:
+                    c = results.loc[idx, 'TeamColor']
+                    if pd.notna(c) and str(c).strip() != '':
+                        hex_color = f"#{c}" if not str(c).startswith('#') else c
+                
+                if not hex_color:
+                    hex_color = fallback_colors.get(team_name, '#262730')
+                
+                # Calculate text contrast
+                try:
+                    h = hex_color.lstrip('#')
+                    rgb = tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
+                    lum = (0.299*rgb[0] + 0.587*rgb[1] + 0.114*rgb[2])
+                    text_color = '#000000' if lum > 140 else '#ffffff'
+                except:
+                    text_color = '#ffffff'
+
+                styles = []
+                for col in row.index:
+                    if col == 'FullName':
+                        styles.append(f'background-color: {hex_color}; color: {text_color}; font-weight: bold;')
+                    else:
+                        styles.append('')
+                return styles
+
+            st.dataframe(results[cols].style.apply(style_rows, axis=1), hide_index=True, use_container_width=True)
             
         except Exception as e:
             st.error(f"Could not load results: {e}")

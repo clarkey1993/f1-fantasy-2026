@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import ast
 import datetime
+from modules.player_dashboard import render_card
 
 def show_player_profile(df, player_name):
     # Filter for the specific player
@@ -42,12 +43,20 @@ def show_player_profile(df, player_name):
             c1, c2 = st.columns(2)
             with c1:
                 st.subheader("Drivers")
-                for d in drivers:
-                    st.info(f"🏎️ {d}")
+                d1, d2 = st.columns(2)
+                for i, d in enumerate(drivers):
+                    if i % 2 == 0:
+                        d1.markdown(render_card(d, is_constructor=False), unsafe_allow_html=True)
+                    else:
+                        d2.markdown(render_card(d, is_constructor=False), unsafe_allow_html=True)
             with c2:
                 st.subheader("Constructors")
-                for c in constructors:
-                    st.success(f"🛠️ {c}")
+                con1, con2 = st.columns(2)
+                for i, c in enumerate(constructors):
+                    if i % 2 == 0:
+                        con1.markdown(render_card(c, is_constructor=True), unsafe_allow_html=True)
+                    else:
+                        con2.markdown(render_card(c, is_constructor=True), unsafe_allow_html=True)
         except Exception as e:
             st.error(f"Could not load picks: {e}")
             st.caption(f"Raw Data: {row.get('Picks', 'N/A')}")
