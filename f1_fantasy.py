@@ -10,7 +10,7 @@ import modules.f1_standings as f1_standings
 import modules.player_dashboard as player_dashboard
 
 # 1. SETUP & CONNECTION
-st.set_page_config(page_title="F1 Fantasy 2026", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="F1 Fantasy 2026", layout="wide", initial_sidebar_state="collapsed")
 
 # Apply the theme (CSS is now handled inside ui_styles.py)
 ui_styles.apply_custom_styles()
