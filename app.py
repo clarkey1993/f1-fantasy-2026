@@ -9,6 +9,7 @@ import scoring
 import fastf1
 import re
 import gspread
+import json
 
 app = Flask(__name__)
 app.secret_key = "dev_key_f1_2026"  # Required for session and flash messages
@@ -27,7 +28,14 @@ SHEET_ID = "150YSDU3o1SiEM1WHpPEK9pNPnGUu03qxR26H77RnApw"
 SHEET_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 DATA_FILE = 'league_data.csv'
 NOTICE_FILE = 'notice.txt'
-CREDENTIALS_FILE = 'service_account.json.json'
+CREDENTIALS_FILE = 'service_account.json'
+
+# Deployment: Check for Secret File (Render) or Env Var
+if os.path.exists('/etc/secrets/service_account.json'):
+    CREDENTIALS_FILE = '/etc/secrets/service_account.json'
+elif os.environ.get('GOOGLE_SHEETS_CREDS_JSON'):
+    with open(CREDENTIALS_FILE, 'w') as f:
+        f.write(os.environ.get('GOOGLE_SHEETS_CREDS_JSON'))
 
 TEAM_CONFIG = {
     "Ferrari": {"color": "#E80020", "slug": "ferrari"},
