@@ -10,8 +10,8 @@
             ⏳ Countdown: {{ countdown }} until the Grid is set!
         </div>
         {% else %}
-        <div class="alert alert-danger fw-bold text-center">
-            🚫 Season Signups are now CLOSED.
+        <div class="alert alert-warning fw-bold text-center">
+            ⚠️ Official Signups have closed. Any new entries after the season starts will NOT get points from earlier races.
         </div>
         {% endif %}
 
@@ -31,7 +31,6 @@
             </div>
         </div>
 
-        {% if open %}
         <form method="post">
             <h4 class="mb-3 border-bottom pb-2">👤 Manager Details</h4>
             <div class="row mb-3">
@@ -153,7 +152,6 @@
 
             <button type="submit" class="btn btn-primary btn-lg w-100">Submit Team</button>
         </form>
-        {% endif %}
     </div>
 </div>
 

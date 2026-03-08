@@ -479,10 +479,6 @@ def signup():
         countdown_str = f"{days}d {hours}h {minutes}m"
 
     if request.method == 'POST':
-        if not signups_open:
-            flash("Signups are closed for this season.", "danger")
-            return redirect(url_for('signup'))
-
         # 1. Gather Personal Info
         name = request.form.get('name')
         nickname = request.form.get('nickname')
