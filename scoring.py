@@ -74,6 +74,16 @@ def calculate_race_scores(df, year, round_name, race_payouts=None, is_test=False
         
         if results.empty:
             return df, f"No results available for {round_name}."
+            
+        # --- PRE-CALCULATE MAX LAPS (Fallback) ---
+        # Find the highest lap count in the entire results table
+        try:
+            max_laps_in_session = results['Laps'].max()
+            if pd.isna(max_laps_in_session) or max_laps_in_session == 0:
+                # Try getting it from the timing data
+                max_laps_in_session = session.laps['LapNumber'].max() if len(session.laps) > 0 else 0
+        except:
+            max_laps_in_session = 0
 
         try:
             fastest_lap_driver = session.laps.pick_fastest()['Driver']
@@ -138,13 +148,19 @@ def calculate_race_scores(df, year, round_name, race_payouts=None, is_test=False
                             this_race_total -= 20
                             continue # Grid points stand, -20 deduction, no other points
                         
-                        # Lap Points (with fallback)
+                        # 2. LAP POINTS (with double fallback)
                         laps = safe_int(d.get('Laps'), 0)
                         if laps == 0:
+                            # Fallback A: Count from timing data
                             try:
                                 dlaps = session.laps.pick_driver(abbr)
                                 if len(dlaps) > 0: laps = len(dlaps)
                             except: pass
+                        
+                        if laps == 0 and check_finished(status):
+                            # Fallback B: If finished but no laps data, assume max laps (better than 0)
+                            laps = int(max_laps_in_session)
+                            
                         this_race_total += laps
                         
                         if check_finished(status):
@@ -155,6 +171,9 @@ def calculate_race_scores(df, year, round_name, race_payouts=None, is_test=False
                         
                         if abbr == fastest_lap_driver:
                             this_race_total += 25
+                            
+                        # Debug Print (Check your terminal!)
+                        print(f"  -> {pick}: Grid={grid}, Laps={laps}, Finish={this_race_total-laps-(21-grid)}")
 
                 # --- CONSTRUCTOR SCORING ---
                 else:
