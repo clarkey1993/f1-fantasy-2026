@@ -459,9 +459,11 @@ def standings():
     try:
         # Add timestamp to URL to prevent caching (Cache Buster)
         ts = int(datetime.datetime.now().timestamp())
+        # Add User-Agent to prevent 403 Forbidden errors
+        headers = {'User-Agent': 'F1-Fantasy-League/1.0'}
 
         # Drivers
-        d_res = requests.get(f"https://api.jolpi.ca/ergast/f1/current/driverStandings.json?t={ts}", timeout=5)
+        d_res = requests.get(f"https://api.jolpi.ca/ergast/f1/current/driverStandings.json?limit=100&t={ts}", headers=headers, timeout=10)
         if d_res.status_code == 200:
             d_data = d_res.json()['MRData']['StandingsTable']['StandingsLists']
             if d_data:
@@ -474,7 +476,7 @@ def standings():
                     })
         
         # Constructors
-        c_res = requests.get(f"https://api.jolpi.ca/ergast/f1/current/constructorStandings.json?t={ts}", timeout=5)
+        c_res = requests.get(f"https://api.jolpi.ca/ergast/f1/current/constructorStandings.json?limit=100&t={ts}", headers=headers, timeout=10)
         if c_res.status_code == 200:
             c_data = c_res.json()['MRData']['StandingsTable']['StandingsLists']
             if c_data:
