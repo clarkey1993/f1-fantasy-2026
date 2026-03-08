@@ -122,13 +122,23 @@ def save_league_data(df):
             # Convert to list of lists, handling NaNs and types for Sheets
             # We use fillna('') because Sheets doesn't like NaN
             data = [df.columns.values.tolist()] + df.fillna('').astype(str).values.tolist()
-            ws.clear()
+            
+            # SAFE UPDATE STRATEGY:
+            # 1. Update cells (overwrites existing data)
             ws.update(range_name='A1', values=data)
+            
+            # 2. Resize sheet to match new data length (trims old rows at the bottom)
+            # This prevents "ghost" rows if the new dataset is smaller than the old one
+            ws.resize(rows=len(data))
+            
             print("Synced to Google Sheet")
+            return True
         except Exception as e:
             print(f"Google Sheet Sync Failed: {e}")
+            return False
     else:
         print(f"⚠️ Skipping Google Sheet Sync: '{CREDENTIALS_FILE}' not found. Data saved locally only.")
+        return True
 
 def get_team_details(name, is_constructor=False):
     """Returns color, slug, and team name for a driver/constructor."""
@@ -675,8 +685,10 @@ def admin_sync():
         updated_df, msg = scoring.calculate_race_scores(df, datetime.datetime.now().year, race_name, payouts)
         
         if "Successfully" in msg:
-            save_league_data(updated_df)
-            flash(msg, "success")
+            if save_league_data(updated_df):
+                flash(msg, "success")
+            else:
+                flash(f"{msg} (⚠️ Warning: Google Sheet sync failed. Data saved locally only.)", "warning")
         else:
             flash(msg, "danger")
             
@@ -684,8 +696,10 @@ def admin_sync():
         test_payouts = [20, 15, 10] + [5] * 9
         updated_df, msg = scoring.calculate_race_scores(df, datetime.datetime.now().year, "Test Race", test_payouts, is_test=True)
         if "Successfully" in msg:
-            save_league_data(updated_df)
-            flash("Test race simulation successful! Data updated.", "success")
+            if save_league_data(updated_df):
+                flash("Test race simulation successful! Data updated.", "success")
+            else:
+                flash("Test successful, but Google Sheet sync failed.", "warning")
         else:
             flash(msg, "danger")
             
