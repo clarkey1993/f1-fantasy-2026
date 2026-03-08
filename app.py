@@ -8,6 +8,7 @@ import os
 import scoring
 import fastf1
 import re
+import gspread
 
 app = Flask(__name__)
 app.secret_key = "dev_key_f1_2026"  # Required for session and flash messages
@@ -26,6 +27,7 @@ SHEET_ID = "150YSDU3o1SiEM1WHpPEK9pNPnGUu03qxR26H77RnApw"
 SHEET_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 DATA_FILE = 'league_data.csv'
 NOTICE_FILE = 'notice.txt'
+CREDENTIALS_FILE = 'service_account.json.json'
 
 TEAM_CONFIG = {
     "Ferrari": {"color": "#E80020", "slug": "ferrari"},
@@ -54,29 +56,71 @@ DRIVER_TEAM_MAP = {
     "Isack Hadjar": "Racing Bulls", "Arvid Lindblad": "Racing Bulls", "Yuki Tsunoda": "Racing Bulls"
 }
 
-def get_league_data():
-    """Fetches data from local CSV or falls back to Google Sheet export."""
-    if os.path.exists(DATA_FILE):
-        return pd.read_csv(DATA_FILE)
-    else:
+def fetch_google_sheet_data():
+    """Attempts to fetch data from Google Sheets via API or CSV Export."""
+    df = pd.DataFrame()
+    # 1. Try API (gspread) - Best for private sheets
+    if os.path.exists(CREDENTIALS_FILE):
+        try:
+            gc = gspread.service_account(filename=CREDENTIALS_FILE)
+            sh = gc.open_by_key(SHEET_ID)
+            ws = sh.sheet1
+            data = ws.get_all_records()
+            df = pd.DataFrame(data)
+            print("Fetched data via gspread API")
+        except Exception as e:
+            print(f"gspread fetch failed: {e}")
+
+    # 2. Fallback to CSV Export - Good for public/link-shared sheets
+    if df.empty:
         try:
             df = pd.read_csv(SHEET_URL)
-            # Clean numeric columns
-            cols = ['Current Score', 'Total Winnings', 'Previous Pos', 'Last Race Pts', 'Total Spent']
-            for c in cols:
-                if c in df.columns:
-                    df[c] = pd.to_numeric(df[c], errors='coerce').fillna(0)
-            
-            # Save locally for persistence
-            df.to_csv(DATA_FILE, index=False)
-            return df
+            print("Fetched data via CSV export URL")
         except Exception as e:
-            print(f"Data Fetch Error: {e}")
-            return pd.DataFrame()
+            print(f"CSV export fetch failed: {e}")
+            
+    return df
+
+def get_league_data():
+    """Fetches data from local CSV or falls back to Google Sheet export."""
+    df = pd.DataFrame()
+    if os.path.exists(DATA_FILE):
+        df = pd.read_csv(DATA_FILE)
+    else:
+        df = fetch_google_sheet_data()
+        if not df.empty:
+            save_league_data(df) # Save to local for next time
+
+    # Ensure numeric columns exist
+    cols = ['Current Score', 'Total Winnings', 'Previous Pos', 'Last Race Pts', 'Total Spent']
+    for c in cols:
+        if c not in df.columns:
+            df[c] = 0
+        df[c] = pd.to_numeric(df[c], errors='coerce').fillna(0)
+        
+    return df
 
 def save_league_data(df):
-    """Saves the DataFrame to the local CSV file."""
+    """Saves to local CSV and attempts to sync to Google Sheet."""
+    # 1. Save Local
     df.to_csv(DATA_FILE, index=False)
+    
+    # 2. Try Google Sheet Sync (Push)
+    if os.path.exists(CREDENTIALS_FILE):
+        try:
+            gc = gspread.service_account(filename=CREDENTIALS_FILE)
+            sh = gc.open_by_key(SHEET_ID)
+            ws = sh.sheet1
+            # Convert to list of lists, handling NaNs and types for Sheets
+            # We use fillna('') because Sheets doesn't like NaN
+            data = [df.columns.values.tolist()] + df.fillna('').astype(str).values.tolist()
+            ws.clear()
+            ws.update(range_name='A1', values=data)
+            print("Synced to Google Sheet")
+        except Exception as e:
+            print(f"Google Sheet Sync Failed: {e}")
+    else:
+        print(f"⚠️ Skipping Google Sheet Sync: '{CREDENTIALS_FILE}' not found. Data saved locally only.")
 
 def get_team_details(name, is_constructor=False):
     """Returns color, slug, and team name for a driver/constructor."""
@@ -533,7 +577,10 @@ def admin():
         with open(NOTICE_FILE, 'r') as f:
             current_notice = f.read().strip()
             
-    return render_template('admin.html', title="Admin", races=races, notice=current_notice)
+    # Check connection status
+    google_sync_status = os.path.exists(CREDENTIALS_FILE)
+            
+    return render_template('admin.html', title="Admin", races=races, notice=current_notice, google_sync_status=google_sync_status)
 
 @app.route('/admin/notice', methods=['POST'])
 def admin_notice():
@@ -560,6 +607,19 @@ def admin_export():
     else:
         flash("No data file found to export.", "warning")
         return redirect(url_for('admin'))
+
+@app.route('/admin/pull_sheet')
+def admin_pull_sheet():
+    if 'user' not in session or session['user'] != "Admin":
+        return redirect(url_for('home'))
+    
+    df = fetch_google_sheet_data()
+    if not df.empty:
+        save_league_data(df)
+        flash("✅ Successfully pulled latest data from Google Sheet.", "success")
+    else:
+        flash("❌ Failed to fetch data from Google Sheet.", "danger")
+    return redirect(url_for('admin'))
 
 @app.route('/admin/reset_scores', methods=['POST'])
 def admin_reset_scores():

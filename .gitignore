@@ -4,3 +4,8 @@ __pycache__/
 
 # FastF1 Cache folder
 f1_cache/
+
+# Secrets and Data
+service_account.json
+service_account.json.json
+league_data.csv

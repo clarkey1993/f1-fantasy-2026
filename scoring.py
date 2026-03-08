@@ -20,6 +20,21 @@ DRIVER_MAP = {
     "Valtteri Bottas": "BOT"
 }
 
+# Map your App's team names to FastF1's official team names
+CONSTRUCTOR_MAP = {
+    "Red Bull": "Red Bull Racing",
+    "Racing Bulls": "RB",
+    "Haas": "Haas F1 Team",
+    "Audi": "Kick Sauber", # Placeholder for testing with 2024 data
+    "Cadillac": "Williams", # Placeholder
+    "Aston Martin": "Aston Martin",
+    "Ferrari": "Ferrari",
+    "McLaren": "McLaren",
+    "Mercedes": "Mercedes",
+    "Alpine": "Alpine",
+    "Williams": "Williams"
+}
+
 def calculate_race_scores(df, year, round_name, race_payouts=None, is_test=False):
     """
     Calculates scores for a given race and updates the DataFrame.
@@ -117,7 +132,9 @@ def calculate_race_scores(df, year, round_name, race_payouts=None, is_test=False
 
                 # --- CONSTRUCTOR SCORING ---
                 else:
-                    t_data = results[results['TeamName'] == pick]
+                    # Map the pick to the official FastF1 name, or use the pick itself if not found
+                    official_team_name = CONSTRUCTOR_MAP.get(pick, pick)
+                    t_data = results[results['TeamName'] == official_team_name]
                     if not t_data.empty:
                         classified_cars = t_data.copy()
                         classified_cars['ClassifiedPosNumeric'] = pd.to_numeric(classified_cars['ClassifiedPosition'], errors='coerce')

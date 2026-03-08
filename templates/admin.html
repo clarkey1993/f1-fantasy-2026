@@ -8,6 +8,16 @@
     </div>
 </div>
 
+<!-- Connection Status -->
+<div class="alert {% if google_sync_status %}alert-success{% else %}alert-warning{% endif %} shadow-sm mb-4">
+    <h5 class="alert-heading mb-1">☁️ Google Sheets Connection: <strong>{% if google_sync_status %}Active{% else %}Inactive{% endif %}</strong></h5>
+    {% if google_sync_status %}
+        <small>Data is being saved to both <code>league_data.csv</code> and your Google Sheet.</small>
+    {% else %}
+        <small>⚠️ <strong>Local Mode Only.</strong> To enable Google Sheets sync, place your <code>service_account.json</code> file in the project folder.</small>
+    {% endif %}
+</div>
+
 <!-- Notice Board Section -->
 <div class="row mb-4">
     <div class="col-12">
@@ -81,6 +91,7 @@
         <div class="card mt-4">
             <div class="card-header bg-secondary text-white fw-bold">📂 Data Management</div>
             <div class="card-body">
+                <a href="{{ url_for('admin_pull_sheet') }}" class="btn btn-outline-primary w-100 mb-2">☁️ Pull Data from Google Sheet</a>
                 <a href="{{ url_for('admin_export') }}" class="btn btn-outline-dark w-100">📥 Download League Backup (CSV)</a>
             </div>
         </div>
