@@ -19,7 +19,7 @@ app.secret_key = "dev_key_f1_2026"  # Required for session and flash messages
 @app.context_processor
 def inject_globals():
     return {
-        'year': datetime.datetime.now().year,
+        'year': 2026,
         'now': datetime.datetime.now()
     }
 
@@ -702,11 +702,12 @@ def admin():
         return redirect(url_for('home'))
 
     races = [
-        "Australia", "China", "Japan", "Bahrain", "Saudi Arabia", "Miami", 
-        "Canada", "Monaco", "Barcelona-Catalunya", "Austria", "Great Britain", 
-        "Belgium", "Hungary", "Netherlands", "Italy", "Spain", "Azerbaijan", 
-        "Singapore", "United States", "Mexico City", "Brazil", "Las Vegas", 
-        "Qatar", "Abu Dhabi"
+        "Australia", "China", "China Sprint", "Japan", "Bahrain", "Saudi Arabia", 
+        "Miami", "Miami Sprint", "Emilia Romagna", "Monaco", "Barcelona-Catalunya", "Spain", 
+        "Canada", "Austria", "Austria Sprint", "Great Britain", "Belgium", 
+        "Hungary", "Netherlands", "Italy", "Azerbaijan", "Singapore", 
+        "United States", "United States Sprint", "Mexico City", "Brazil", "Brazil Sprint", 
+        "Las Vegas", "Qatar", "Qatar Sprint", "Abu Dhabi"
     ]
     
     # Read current notice for editing
