@@ -590,8 +590,14 @@ def admin():
             
     # Check connection status
     google_sync_status = os.path.exists(CREDENTIALS_FILE)
+    
+    # Get last data update time
+    last_update = "Never"
+    if os.path.exists(DATA_FILE):
+        timestamp = os.path.getmtime(DATA_FILE)
+        last_update = datetime.datetime.fromtimestamp(timestamp).strftime('%d %b %Y, %H:%M:%S')
             
-    return render_template('admin.html', title="Admin", races=races, notice=current_notice, google_sync_status=google_sync_status)
+    return render_template('admin.html', title="Admin", races=races, notice=current_notice, google_sync_status=google_sync_status, last_update=last_update)
 
 @app.route('/admin/notice', methods=['POST'])
 def admin_notice():
