@@ -20,6 +20,26 @@ DRIVER_MAP = {
     "Valtteri Bottas": "BOT"
 }
 
+# Map your App's team names to FastF1's official team names
+CONSTRUCTOR_MAP = {
+    "Red Bull": "Red Bull Racing",
+    "Racing Bulls": "RB",
+    "Haas": "Haas F1 Team",
+    "Audi": "Kick Sauber", # Placeholder
+    "Cadillac": "Williams", # Placeholder
+    "Aston Martin": "Aston Martin",
+    "Ferrari": "Ferrari",
+    "McLaren": "McLaren",
+    "Mercedes": "Mercedes",
+    "Alpine": "Alpine",
+    "Williams": "Williams"
+}
+
+def check_finished(status):
+    """Returns True if the driver actually crossed the finish line."""
+    s = str(status).lower()
+    return s == 'finished' or s.startswith('+')
+
 def run_sync(conn, url, year, round_name, race_payouts=None, is_test=False):
     try:
         # 1. Get Race Data
@@ -78,54 +98,85 @@ def run_sync(conn, url, year, round_name, race_payouts=None, is_test=False):
                     if not d_data.empty:
                         d = d_data.iloc[0]
                         
-                        # Safely parse positions
+                        # 1. GRID POINTS (20 for 1st ... 1 for 20th)
                         try:
                             grid = int(d['GridPosition'])
                         except:
-                            grid = 20
-                            
-                        try:
-                            finish = int(d['ClassifiedPosition'])
-                            is_classified = True
-                        except:
-                            finish = 20
-                            is_classified = False
+                            grid = 0
+                        
+                        # Handle DNS (Did Not Start)
+                        status = str(d['Status'])
+                        if status == 'Did not start':
+                            this_race_total += 0
+                            continue # No points for the weekend
 
-                        this_race_total += (21 - grid) # Grid Pts
+                        # Handle Pit Lane Starts (Grid=0) -> 1 point (Pos 20)
+                        if grid == 0:
+                            grid = 20
+                        
+                        # Add Grid Points
+                        this_race_total += (21 - grid)
+
+                        # Handle Disqualification (DSQ)
+                        if 'Disqualified' in status or 'Excluded' in status:
+                            this_race_total -= 20
+                            continue # Grid points stand, -20 deduction, no other points
+
+                        # 2. LAP POINTS (1 pt per lap)
                         try:
-                            this_race_total += int(d['Laps']) # Lap Pts
+                            laps = int(d['Laps'])
+                            this_race_total += laps
                         except:
                             pass
                         
-                        if is_classified:
+                        # 3. FINISHING POINTS (Only if actually finished)
+                        if check_finished(status):
+                            try:
+                                finish = int(d['ClassifiedPosition'])
+                            except:
+                                finish = 20
+
+                            # Improvement Bonus
                             gain = grid - finish
                             if gain > 0: this_race_total += gain # Improvement
+                            
+                            # Top 10 Finishing Points
                             this_race_total += points_map.get(finish, 0)
                         
+                        # 4. FASTEST LAP (25 pts)
                         if abbr == fastest_lap_driver:
                             this_race_total += 25
-                            
-                        if "Disqualified" in d['Status'] or "Excluded" in d['Status']:
-                            this_race_total -= 20
 
                 # --- CONSTRUCTOR SCORING ---
                 else:
-                    t_data = results[results['TeamName'] == pick]
+                    # Map to official team name
+                    official_team = CONSTRUCTOR_MAP.get(pick, pick)
+                    t_data = results[results['TeamName'] == official_team]
+                    
                     if not t_data.empty:
-                        # Filter for cars that have a numeric ClassifiedPosition (Finished or +1 Lap etc)
-                        # We use pd.to_numeric with coerce to turn 'R' into NaN, then dropna
-                        classified_cars = t_data.copy()
-                        classified_cars['ClassifiedPosNumeric'] = pd.to_numeric(classified_cars['ClassifiedPosition'], errors='coerce')
-                        finished_cars = classified_cars.dropna(subset=['ClassifiedPosNumeric'])
-                        
-                        this_race_total += (len(finished_cars) * 10)
-                        
-                        if not finished_cars.empty:
-                            best_pos = int(finished_cars['ClassifiedPosNumeric'].min())
-                            this_race_total += points_map.get(best_pos, 0)
-                        
+                        # 1. DSQ Deduction (-10 per car)
                         dq_cars = t_data[t_data['Status'].str.contains("Disqualified|Excluded", na=False)]
                         this_race_total -= (len(dq_cars) * 10)
+
+                        # Filter for ACTUAL finishers (passed chequered flag)
+                        finishers = []
+                        for _, car in t_data.iterrows():
+                            if check_finished(car['Status']):
+                                finishers.append(car)
+                        
+                        # 2. Finishing Car Bonus (10 pts per car)
+                        this_race_total += (len(finishers) * 10)
+                        
+                        # 3. Best Position Points (Highest placed car only)
+                        if finishers:
+                            best_pos = 999
+                            for car in finishers:
+                                try:
+                                    p = int(car['ClassifiedPosition'])
+                                    if p < best_pos: best_pos = p
+                                except: pass
+                            
+                            this_race_total += points_map.get(best_pos, 0)
             
             race_points_this_weekend.append(this_race_total)
 
