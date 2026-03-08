@@ -263,10 +263,12 @@ def get_latest_results_data():
         data = []
         headers = ['Pos', 'Driver', 'Team']
         
-        is_quali = 'Q3' in results.columns
+        # Determine session type from name to avoid Q3 column confusion in Race results
+        is_quali = 'Qualifying' in session.name
+        
         if is_quali:
             headers.extend(['Q1', 'Q2', 'Q3'])
-        elif 'Time' in results.columns:
+        else:
             headers.extend(['Time', 'Pts'])
             
         for idx, row in results.iterrows():
@@ -306,7 +308,13 @@ def get_latest_results_data():
                     val = str(row.get(q, '')).split('days ')[-1][:-3] if pd.notna(row.get(q, '')) and str(row.get(q, '')).strip() != "" else ""
                     item['cols'].append(val)
             else:
-                t = str(row.get('Time', '')).split('days ')[-1][:-3] if pd.notna(row.get('Time', '')) else str(row.get('Status', ''))
+                # Race Logic: Show Time if available, otherwise Status (for DNF/Lapped)
+                time_val = row.get('Time')
+                if pd.notna(time_val):
+                    t = str(time_val).split('days ')[-1][:-3]
+                else:
+                    t = str(row.get('Status', ''))
+                
                 pts = str(row.get('Points', 0)).replace('.0', '')
                 item['cols'].extend([t, pts])
                 
@@ -456,39 +464,54 @@ def standings():
     drivers = []
     constructors = []
     
+    # Common headers and timestamp
+    ts = int(datetime.datetime.now().timestamp())
+    headers = {'User-Agent': 'F1-Fantasy-League/1.0'}
+    
+    # --- DRIVERS ---
     try:
-        # Add timestamp to URL to prevent caching (Cache Buster)
-        ts = int(datetime.datetime.now().timestamp())
-        # Add User-Agent to prevent 403 Forbidden errors
-        headers = {'User-Agent': 'F1-Fantasy-League/1.0'}
-
-        # Drivers
-        d_res = requests.get(f"https://api.jolpi.ca/ergast/f1/current/driverStandings.json?limit=100&t={ts}", headers=headers, timeout=10)
-        if d_res.status_code == 200:
-            d_data = d_res.json()['MRData']['StandingsTable']['StandingsLists']
-            if d_data:
-                for d in d_data[0]['DriverStandings']:
-                    drivers.append({
-                        "pos": d['position'],
-                        "name": f"{d['Driver']['givenName']} {d['Driver']['familyName']}",
-                        "team": d['Constructors'][0]['name'] if d['Constructors'] else "-",
-                        "pts": d['points']
-                    })
+        params = {'limit': 100, 't': ts}
+        d_res = requests.get("https://api.jolpi.ca/ergast/f1/current/driverStandings.json", params=params, headers=headers, timeout=15)
         
-        # Constructors
-        c_res = requests.get(f"https://api.jolpi.ca/ergast/f1/current/constructorStandings.json?limit=100&t={ts}", headers=headers, timeout=10)
-        if c_res.status_code == 200:
-            c_data = c_res.json()['MRData']['StandingsTable']['StandingsLists']
-            if c_data:
-                for c in c_data[0]['ConstructorStandings']:
-                    constructors.append({
-                        "pos": c['position'],
-                        "team": c['Constructor']['name'],
-                        "pts": c['points']
+        if d_res.status_code == 200:
+            d_data = d_res.json().get('MRData', {}).get('StandingsTable', {}).get('StandingsLists', [])
+            if d_data:
+                for d in d_data[0].get('DriverStandings', []):
+                    # Safe extraction to prevent crashes on missing data
+                    driver_info = d.get('Driver', {})
+                    name = f"{driver_info.get('givenName', '')} {driver_info.get('familyName', '')}"
+                    
+                    cons = d.get('Constructors', [])
+                    team = cons[0].get('name', '-') if cons else "-"
+                    
+                    drivers.append({
+                        "pos": d.get('position', '-'),
+                        "name": name,
+                        "team": team,
+                        "pts": d.get('points', '0')
                     })
     except Exception as e:
-        print(f"API Error: {e}")
-        flash("Could not fetch live F1 standings.", "warning")
+        print(f"Drivers API Error: {e}")
+        flash("Could not fetch Driver standings.", "warning")
+
+    # --- CONSTRUCTORS ---
+    try:
+        params = {'limit': 100, 't': ts}
+        c_res = requests.get("https://api.jolpi.ca/ergast/f1/current/constructorStandings.json", params=params, headers=headers, timeout=15)
+        
+        if c_res.status_code == 200:
+            c_data = c_res.json().get('MRData', {}).get('StandingsTable', {}).get('StandingsLists', [])
+            if c_data:
+                for c in c_data[0].get('ConstructorStandings', []):
+                    cons_info = c.get('Constructor', {})
+                    constructors.append({
+                        "pos": c.get('position', '-'),
+                        "team": cons_info.get('name', '-'),
+                        "pts": c.get('points', '0')
+                    })
+    except Exception as e:
+        print(f"Constructors API Error: {e}")
+        flash("Could not fetch Constructor standings.", "warning")
 
     return render_template('standings.html', title="Standings", drivers=drivers, constructors=constructors)
 
