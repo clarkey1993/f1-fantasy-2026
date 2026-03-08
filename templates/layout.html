@@ -7,13 +7,27 @@
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script>
-      // Apply system theme preference automatically
-      const updateTheme = () => {
-        const mode = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-        document.documentElement.setAttribute('data-bs-theme', mode);
+      // Theme management logic
+      const getStoredTheme = () => localStorage.getItem('theme');
+      const setStoredTheme = theme => localStorage.setItem('theme', theme);
+
+      const setTheme = theme => {
+        if (theme === 'auto') {
+            localStorage.removeItem('theme');
+            document.documentElement.setAttribute('data-bs-theme', (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+        } else {
+            setStoredTheme(theme);
+            document.documentElement.setAttribute('data-bs-theme', theme);
+        }
       };
-      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', updateTheme);
-      updateTheme();
+
+      // Apply on load
+      setTheme(getStoredTheme() || 'auto');
+
+      // Listen for system changes
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+        if (!getStoredTheme()) setTheme('auto');
+      });
     </script>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
@@ -48,6 +62,11 @@
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">{{ session['user'] }}</a>
                     <ul class="dropdown-menu dropdown-menu-end">
+                        <li><h6 class="dropdown-header">Appearance</h6></li>
+                        <li><button class="dropdown-item" onclick="setTheme('light')">☀️ Light</button></li>
+                        <li><button class="dropdown-item" onclick="setTheme('dark')">🌙 Dark</button></li>
+                        <li><button class="dropdown-item" onclick="setTheme('auto')">⚙️ System</button></li>
+                        <li><hr class="dropdown-divider"></li>
                         {% if session['user'] == 'Admin' %}
                         <li><a class="dropdown-item" href="{{ url_for('admin') }}">Admin</a></li>
                         <li><hr class="dropdown-divider"></li>
