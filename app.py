@@ -10,6 +10,7 @@ import fastf1
 import re
 import gspread
 import json
+import shutil
 
 app = Flask(__name__)
 app.secret_key = "dev_key_f1_2026"  # Required for session and flash messages
@@ -630,6 +631,20 @@ def admin_export():
     else:
         flash("No data file found to export.", "warning")
         return redirect(url_for('admin'))
+
+@app.route('/admin/clear_cache', methods=['POST'])
+def admin_clear_cache():
+    if 'user' not in session or session['user'] != "Admin":
+        return redirect(url_for('home'))
+    
+    try:
+        if os.path.exists('f1_cache'):
+            shutil.rmtree('f1_cache')
+        flash("✅ System cache cleared! FastF1 will re-download fresh data on next request.", "success")
+    except Exception as e:
+        flash(f"Error clearing cache: {e}", "danger")
+        
+    return redirect(url_for('admin'))
 
 @app.route('/admin/pull_sheet')
 def admin_pull_sheet():

@@ -92,6 +92,9 @@
             <div class="card-header bg-secondary text-white fw-bold">📂 Data Management</div>
             <div class="card-body">
                 <p class="text-muted small mb-2">Last Local Update: <strong>{{ last_update }}</strong></p>
+                <form action="{{ url_for('admin_clear_cache') }}" method="post" class="mb-2">
+                    <button type="submit" class="btn btn-warning w-100">🧹 Clear FastF1 Cache (Fix Stale Data)</button>
+                </form>
                 <a href="{{ url_for('admin_pull_sheet') }}" class="btn btn-primary w-100 mb-2">☁️ Pull Data from Google Sheet</a>
                 <a href="{{ url_for('admin_export') }}" class="btn btn-secondary w-100">📥 Download League Backup (CSV)</a>
             </div>

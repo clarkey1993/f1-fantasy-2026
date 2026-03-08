@@ -35,6 +35,20 @@ CONSTRUCTOR_MAP = {
     "Williams": "Williams"
 }
 
+def safe_int(val, default=0):
+    """Safely converts a value to int, handling floats, strings, and NaNs."""
+    try:
+        if pd.isna(val) or str(val).strip() == '':
+            return default
+        return int(float(val))
+    except:
+        return default
+
+def check_finished(status):
+    """Returns True if the driver actually crossed the finish line."""
+    s = str(status).lower()
+    return s == 'finished' or s.startswith('+')
+
 def calculate_race_scores(df, year, round_name, race_payouts=None, is_test=False):
     """
     Calculates scores for a given race and updates the DataFrame.
@@ -105,35 +119,42 @@ def calculate_race_scores(df, year, round_name, race_payouts=None, is_test=False
                         d = d_data.iloc[0]
                         
                         # Safely parse positions
-                        try: grid = int(d['GridPosition'])
-                        except: grid = 20
-                            
-                        try: 
-                            finish = int(d['ClassifiedPosition'])
-                            is_classified = True
-                        except: 
-                            finish = 20
-                            is_classified = False
+                        grid = safe_int(d.get('GridPosition'), 0)
+                        
+                        # Handle DNS (Did Not Start)
+                        status = str(d['Status'])
+                        if status == 'Did not start':
+                            continue # No points for the weekend
+
+                        # Handle Pit Lane Starts (Grid=0) -> 1 point (Pos 20)
+                        if grid == 0:
+                            grid = 20
 
                         # Scoring Logic
                         this_race_total += (21 - grid) # Grid Pts
                         
-                        # Fix for NaN laps
-                        try:
-                            this_race_total += int(d['Laps']) # Lap Pts
-                        except:
-                            pass
+                        # Handle Disqualification (DSQ)
+                        if 'Disqualified' in status or 'Excluded' in status:
+                            this_race_total -= 20
+                            continue # Grid points stand, -20 deduction, no other points
                         
-                        if is_classified:
+                        # Lap Points (with fallback)
+                        laps = safe_int(d.get('Laps'), 0)
+                        if laps == 0:
+                            try:
+                                dlaps = session.laps.pick_driver(abbr)
+                                if len(dlaps) > 0: laps = len(dlaps)
+                            except: pass
+                        this_race_total += laps
+                        
+                        if check_finished(status):
+                            finish = safe_int(d.get('ClassifiedPosition'), 20)
                             gain = grid - finish
                             if gain > 0: this_race_total += gain # Improvement
                             this_race_total += points_map.get(finish, 0)
                         
                         if abbr == fastest_lap_driver:
                             this_race_total += 25
-                            
-                        if "Disqualified" in str(d['Status']) or "Excluded" in str(d['Status']):
-                            this_race_total -= 20
 
                 # --- CONSTRUCTOR SCORING ---
                 else:
@@ -141,18 +162,26 @@ def calculate_race_scores(df, year, round_name, race_payouts=None, is_test=False
                     official_team_name = CONSTRUCTOR_MAP.get(pick, pick)
                     t_data = results[results['TeamName'] == official_team_name]
                     if not t_data.empty:
-                        classified_cars = t_data.copy()
-                        classified_cars['ClassifiedPosNumeric'] = pd.to_numeric(classified_cars['ClassifiedPosition'], errors='coerce')
-                        finished_cars = classified_cars.dropna(subset=['ClassifiedPosNumeric'])
-                        
-                        this_race_total += (len(finished_cars) * 10)
-                        
-                        if not finished_cars.empty:
-                            best_pos = int(finished_cars['ClassifiedPosNumeric'].min())
-                            this_race_total += points_map.get(best_pos, 0)
-                        
+                        # 1. DSQ Deduction
                         dq_cars = t_data[t_data['Status'].str.contains("Disqualified|Excluded", na=False)]
                         this_race_total -= (len(dq_cars) * 10)
+
+                        # Filter for ACTUAL finishers
+                        finishers = []
+                        for _, car in t_data.iterrows():
+                            if check_finished(car['Status']):
+                                finishers.append(car)
+                        
+                        # 2. Finishing Car Bonus
+                        this_race_total += (len(finishers) * 10)
+                        
+                        # 3. Best Position Points
+                        if finishers:
+                            best_pos = 999
+                            for car in finishers:
+                                p = safe_int(car.get('ClassifiedPosition'), 999)
+                                if p < best_pos: best_pos = p
+                            this_race_total += points_map.get(best_pos, 0)
             
             race_points_this_weekend.append(this_race_total)
 
