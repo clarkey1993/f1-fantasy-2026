@@ -92,7 +92,10 @@ def run_sync(conn, url, year, round_name, race_payouts=None, is_test=False):
                             is_classified = False
 
                         this_race_total += (21 - grid) # Grid Pts
-                        this_race_total += int(d['Laps']) # Lap Pts
+                        try:
+                            this_race_total += int(d['Laps']) # Lap Pts
+                        except:
+                            pass
                         
                         if is_classified:
                             gain = grid - finish
