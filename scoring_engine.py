@@ -129,6 +129,16 @@ def run_sync(conn, url, year, round_name, race_payouts=None, is_test=False):
 
                         # 2. LAP POINTS (1 pt per lap)
                         laps = safe_int(d.get('Laps'), 0)
+                        
+                        # Fallback: If laps is 0, try counting from session timing data
+                        if laps == 0:
+                            try:
+                                dlaps = session.laps.pick_driver(abbr)
+                                if len(dlaps) > 0:
+                                    laps = len(dlaps)
+                            except:
+                                pass
+                                
                         this_race_total += laps
                         
                         # 3. FINISHING POINTS (Only if actually finished)

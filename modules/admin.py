@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 import datetime
 import scoring_engine
+import shutil
+import os
 
 def show_admin_panel(conn, url):
     st.subheader("🔐 Commissioner Access")
@@ -71,6 +73,15 @@ def show_admin_panel(conn, url):
                     st.success("Test points and payouts applied to the sheet.")
                 else:
                     st.error(msg)
+
+        st.write("### 🛠️ Troubleshooting")
+        if st.button("🧹 Clear FastF1 Cache"):
+            try:
+                if os.path.exists('f1_cache'):
+                    shutil.rmtree('f1_cache')
+                st.success("Cache cleared! Next sync will download fresh data from F1.")
+            except Exception as e:
+                st.error(f"Error clearing cache: {e}")
 
         st.divider()
         st.write("### 📂 Data Management")
