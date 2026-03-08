@@ -37,8 +37,11 @@
                 {% for row in results.rows %}
                 <tr>
                     <td>{{ row.pos }}</td>
-                    <td class="driver-result" data-bg="{{ row.color }}" data-color="{{ row.text_color }}">
-                        {{ row.driver }}
+                    <td>
+                        <div class="d-flex align-items-center">
+                            <img src="{{ row.image }}" class="rounded-circle me-2" style="width: 40px; height: 40px; object-fit: cover; object-position: top; border: 2px solid {{ row.color }}; padding: 1px; background-color: #fff;">
+                            <span class="fw-bold">{{ row.driver }}</span>
+                        </div>
                     </td>
                     <td>{{ row.team }}</td>
                     {% for col in row.cols %}
@@ -71,13 +74,6 @@
 </div>
 
 <script>
-    // Apply colors via JS to avoid CSS validation errors with Jinja syntax
-    document.querySelectorAll('.driver-result').forEach(el => {
-        el.style.backgroundColor = el.getAttribute('data-bg');
-        el.style.color = el.getAttribute('data-color');
-        el.style.fontWeight = 'bold';
-    });
-
     // Real-time Countdown Timer
     const countdownEl = document.getElementById('f1-countdown');
     if (countdownEl) {

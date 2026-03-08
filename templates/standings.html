@@ -7,15 +7,20 @@
     <div class="col-md-6">
         <div class="card">
             <div class="card-header bg-danger text-white fw-bold">Drivers Championship</div>
-            <table class="table table-sm mb-0">
+            <table class="table table-sm mb-0 align-middle">
                 <thead>
                     <tr><th>Pos</th><th>Driver</th><th>Team</th><th>Pts</th></tr>
                 </thead>
                 <tbody>
                     {% for d in drivers %}
                     <tr>
-                        <td>{{ loop.index }}</td>
-                        <td class="fw-bold">{{ d.name }}</td>
+                        <td class="text-center">{{ loop.index }}</td>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <img src="{{ d.image }}" class="rounded-circle me-2" style="width: 40px; height: 40px; object-fit: cover; object-position: top; border: 2px solid {{ d.color }}; padding: 1px; background-color: #fff;">
+                                <span class="fw-bold">{{ d.name }}</span>
+                            </div>
+                        </td>
                         <td><small>{{ d.team }}</small></td>
                         <td>{{ d.pts }}</td>
                     </tr>
@@ -28,15 +33,18 @@
     <div class="col-md-6">
         <div class="card">
             <div class="card-header bg-dark text-white fw-bold">Constructors Championship</div>
-            <table class="table table-sm mb-0">
+            <table class="table table-sm mb-0 align-middle">
                 <thead>
                     <tr><th>Pos</th><th>Team</th><th>Pts</th></tr>
                 </thead>
                 <tbody>
                     {% for c in constructors %}
                     <tr>
-                        <td>{{ loop.index }}</td>
-                        <td class="fw-bold">{{ c.team }}</td>
+                        <td class="text-center">{{ loop.index }}</td>
+                        <td>
+                            <span class="d-inline-block rounded-circle me-2" style="width: 12px; height: 12px; background-color: {{ c.color }};"></span>
+                            <span class="fw-bold">{{ c.team }}</span>
+                        </td>
                         <td>{{ c.pts }}</td>
                     </tr>
                     {% endfor %}

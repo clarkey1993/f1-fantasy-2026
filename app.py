@@ -72,6 +72,38 @@ DRIVER_TEAM_MAP = {
     "Isack Hadjar": "Racing Bulls", "Arvid Lindblad": "Racing Bulls", "Yuki Tsunoda": "Racing Bulls"
 }
 
+def get_team_config(team_name):
+    """Helper to get team color and slug from fuzzy name match."""
+    config = TEAM_CONFIG.get("Cadillac") # Default
+    for t_key, t_val in TEAM_CONFIG.items():
+        if t_key.lower() in str(team_name).lower():
+            config = t_val
+            break
+    return config
+
+def get_driver_image(name):
+    """Returns official F1 image URL or None."""
+    # Map names to 2024 F1.com slugs
+    slugs = {
+        "Max Verstappen": "verstappen", "Sergio Perez": "perez",
+        "Lewis Hamilton": "hamilton", "George Russell": "russell",
+        "Charles Leclerc": "leclerc", "Carlos Sainz": "sainz", "Carlos Sainz Jnr": "sainz",
+        "Lando Norris": "norris", "Oscar Piastri": "piastri",
+        "Fernando Alonso": "alonso", "Lance Stroll": "stroll",
+        "Esteban Ocon": "ocon", "Pierre Gasly": "gasly",
+        "Alex Albon": "albon", "Alexander Albon": "albon",
+        "Valtteri Bottas": "bottas", "Guanyu Zhou": "zhou",
+        "Kevin Magnussen": "magnussen", "Nico Hulkenberg": "hulkenberg",
+        "Yuki Tsunoda": "tsunoda", "Daniel Ricciardo": "ricciardo",
+        "Liam Lawson": "lawson", "Oliver Bearman": "bearman",
+        "Franco Colapinto": "colapinto"
+    }
+    
+    slug = slugs.get(name)
+    if slug:
+        return f"https://media.formula1.com/content/dam/fom-website/drivers/2024Drivers/{slug}.jpg.img.1920.medium.jpg"
+    return None
+
 def fetch_google_sheet_data():
     """Attempts to fetch data from Google Sheets via API or CSV Export."""
     df = pd.DataFrame()
@@ -156,13 +188,7 @@ def get_team_details(name, is_constructor=False):
         team_name = DRIVER_TEAM_MAP.get(name, "Cadillac")
     
     # Fuzzy match for team config
-    config = TEAM_CONFIG.get("Cadillac")
-    for t_key, t_val in TEAM_CONFIG.items():
-        if t_key in team_name:
-            config = t_val
-            team_name = t_key
-            break
-            
+    config = get_team_config(team_name)
     return {
         "name": name,
         "team": team_name,
@@ -301,7 +327,13 @@ def get_latest_results_data():
             if pos.lower() in ['nan', 'r', 'n/c', 'ret', 'none', '', 'dq', 'ex']:
                 pos = "DNF"
             
-            item = {'pos': pos, 'driver': row['FullName'], 'team': team_name, 'color': color, 'text_color': text_color, 'cols': []}
+            # Image Logic
+            driver_name = row['FullName']
+            img_url = get_driver_image(driver_name)
+            if not img_url:
+                img_url = f"https://ui-avatars.com/api/?name={driver_name}&background=fff&color={color.replace('#', '')}&size=128&bold=true"
+
+            item = {'pos': pos, 'driver': driver_name, 'team': team_name, 'color': color, 'text_color': text_color, 'image': img_url, 'cols': []}
             
             if is_quali:
                 for q in ['Q1', 'Q2', 'Q3']:
@@ -484,11 +516,20 @@ def standings():
                     cons = d.get('Constructors', [])
                     team = cons[0].get('name', '-') if cons else "-"
                     
+                    t_config = get_team_config(team)
+                    
+                    # Image Logic: Try official photo, fallback to avatar
+                    img_url = get_driver_image(name)
+                    if not img_url:
+                        img_url = f"https://ui-avatars.com/api/?name={name}&background=fff&color={t_config['color'].replace('#', '')}&size=128&bold=true"
+                    
                     drivers.append({
                         "pos": d.get('position', '-'),
                         "name": name,
                         "team": team,
-                        "pts": d.get('points', '0')
+                        "pts": d.get('points', '0'),
+                        "color": t_config['color'],
+                        "image": img_url
                     })
     except Exception as e:
         print(f"Drivers API Error: {e}")
@@ -504,10 +545,14 @@ def standings():
             if c_data:
                 for c in c_data[0].get('ConstructorStandings', []):
                     cons_info = c.get('Constructor', {})
+                    team_name = cons_info.get('name', '-')
+                    t_config = get_team_config(team_name)
+                    
                     constructors.append({
                         "pos": c.get('position', '-'),
-                        "team": cons_info.get('name', '-'),
-                        "pts": c.get('points', '0')
+                        "team": team_name,
+                        "pts": c.get('points', '0'),
+                        "color": t_config['color']
                     })
     except Exception as e:
         print(f"Constructors API Error: {e}")
