@@ -37,7 +37,7 @@
                 {% for row in results.rows %}
                 <tr>
                     <td>{{ row.pos }}</td>
-                    <td style="background-color: {{ row.color }}; color: {{ row.text_color }}; font-weight: bold;">
+                    <td class="driver-result" data-bg="{{ row.color }}" data-color="{{ row.text_color }}">
                         {{ row.driver }}
                     </td>
                     <td>{{ row.team }}</td>
@@ -69,4 +69,13 @@
         {% endfor %}
     </div>
 </div>
+
+<script>
+    // Apply colors via JS to avoid CSS validation errors with Jinja syntax
+    document.querySelectorAll('.driver-result').forEach(el => {
+        el.style.backgroundColor = el.getAttribute('data-bg');
+        el.style.color = el.getAttribute('data-color');
+        el.style.fontWeight = 'bold';
+    });
+</script>
 {% endblock %}
