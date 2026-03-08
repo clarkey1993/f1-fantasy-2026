@@ -513,7 +513,7 @@ def standings():
         print(f"Constructors API Error: {e}")
         flash("Could not fetch Constructor standings.", "warning")
 
-    return render_template('standings.html', title="Standings", drivers=drivers, constructors=constructors)
+    return render_template('standings.html', title="F1 Standings", drivers=drivers, constructors=constructors)
 
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
