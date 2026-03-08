@@ -40,6 +40,15 @@ def check_finished(status):
     s = str(status).lower()
     return s == 'finished' or s.startswith('+')
 
+def safe_int(val, default=0):
+    """Safely converts a value to int, handling floats, strings, and NaNs."""
+    try:
+        if pd.isna(val) or str(val).strip() == '':
+            return default
+        return int(float(val))
+    except:
+        return default
+
 def run_sync(conn, url, year, round_name, race_payouts=None, is_test=False):
     try:
         # 1. Get Race Data
@@ -99,13 +108,7 @@ def run_sync(conn, url, year, round_name, race_payouts=None, is_test=False):
                         d = d_data.iloc[0]
                         
                         # 1. GRID POINTS (20 for 1st ... 1 for 20th)
-                        try:
-                            grid_val = d.get('GridPosition', 0)
-                            if pd.isna(grid_val):
-                                grid_val = 0
-                            grid = int(grid_val)
-                        except:
-                            grid = 0
+                        grid = safe_int(d.get('GridPosition'), 0)
                         
                         # Handle DNS (Did Not Start)
                         status = str(d['Status'])
@@ -125,23 +128,13 @@ def run_sync(conn, url, year, round_name, race_payouts=None, is_test=False):
                             continue # Grid points stand, -20 deduction, no other points
 
                         # 2. LAP POINTS (1 pt per lap)
-                        try:
-                            laps_val = d.get('Laps', 0)
-                            if pd.isna(laps_val):
-                                laps_val = 0
-                            this_race_total += int(laps_val)
-                        except:
-                            pass
+                        laps = safe_int(d.get('Laps'), 0)
+                        this_race_total += laps
                         
                         # 3. FINISHING POINTS (Only if actually finished)
+                        finish = 20 # Default
                         if check_finished(status):
-                            try:
-                                finish_val = d.get('ClassifiedPosition', 20)
-                                if pd.isna(finish_val):
-                                    finish_val = 20
-                                finish = int(finish_val)
-                            except:
-                                finish = 20
+                            finish = safe_int(d.get('ClassifiedPosition'), 20)
 
                             # Improvement Bonus
                             gain = grid - finish
@@ -153,6 +146,9 @@ def run_sync(conn, url, year, round_name, race_payouts=None, is_test=False):
                         # 4. FASTEST LAP (25 pts)
                         if abbr == fastest_lap_driver:
                             this_race_total += 25
+                        
+                        # Debug print to help verify points
+                        # print(f"  {pick}: Grid={grid}, Laps={laps}, Finish={finish}, Status={status} -> Pts={this_race_total}")
 
                 # --- CONSTRUCTOR SCORING ---
                 else:
@@ -178,10 +174,8 @@ def run_sync(conn, url, year, round_name, race_payouts=None, is_test=False):
                         if finishers:
                             best_pos = 999
                             for car in finishers:
-                                try:
-                                    p = int(car['ClassifiedPosition'])
-                                    if p < best_pos: best_pos = p
-                                except: pass
+                                p = safe_int(car.get('ClassifiedPosition'), 999)
+                                if p < best_pos: best_pos = p
                             
                             this_race_total += points_map.get(best_pos, 0)
             
