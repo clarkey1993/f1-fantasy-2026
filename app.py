@@ -372,11 +372,10 @@ def home():
             
     if df.empty:
         flash("Could not load league data.", "danger")
-        return render_template('index.html', title="Home", leaderboard=[], top_scorers=[], top_earners=[], notice=notice_msg)
+        return render_template('index.html', title="Home", leaderboard=[], race_results=[], notice=notice_msg)
     
     # 1. Latest Race Recap Data
-    top_scorers = df.sort_values(by='Last Race Pts', ascending=False).head(5)[['Nickname', 'Last Race Pts']].to_dict(orient='records')
-    top_earners = df[df['Total Winnings'] > 0].sort_values(by='Total Winnings', ascending=False).head(5)[['Nickname', 'Total Winnings']].to_dict(orient='records')
+    race_results = df.sort_values(by='Last Race Pts', ascending=False).to_dict(orient='records')
     
     # 2. Main Leaderboard Data
     df = df.sort_values(by=['Current Score', 'Total Winnings'], ascending=False)
@@ -389,7 +388,7 @@ def home():
         row_dict['DisplayPos'] = f"({prev}) {i + 1}"
         leaderboard_data.append(row_dict)
 
-    return render_template('index.html', title="Leaderboard", leaderboard=leaderboard_data, top_scorers=top_scorers, top_earners=top_earners, notice=notice_msg)
+    return render_template('index.html', title="Leaderboard", leaderboard=leaderboard_data, race_results=race_results, notice=notice_msg)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
