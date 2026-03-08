@@ -117,7 +117,16 @@ def calculate_race_scores(df, year, round_name, race_payouts=None, is_test=False
 
                         # Scoring Logic
                         this_race_total += (21 - grid) # Grid Pts
+<<<<<<< Updated upstream
                         this_race_total += int(d['Laps']) # Lap Pts
+=======
+                        
+                        # Fix for NaN laps
+                        try:
+                            this_race_total += int(d['Laps']) # Lap Pts
+                        except:
+                            pass
+>>>>>>> Stashed changes
                         
                         if is_classified:
                             gain = grid - finish
