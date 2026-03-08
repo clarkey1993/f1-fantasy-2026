@@ -1,0 +1,46 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="row justify-content-center mt-4">
+    <div class="col-md-8">
+        <h2 class="mb-4 border-bottom pb-2">⚙️ Settings</h2>
+        
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">🎨 Appearance</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Select how you want the application to look.</p>
+                <div class="d-grid gap-2 d-md-block">
+                    <button class="btn btn-outline-primary" onclick="setTheme('light')">☀️ Light Mode</button>
+                    <button class="btn btn-outline-dark" onclick="setTheme('dark')">🌙 Dark Mode</button>
+                    <button class="btn btn-outline-secondary" onclick="setTheme('auto')">⚙️ System Default</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mt-4">
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0">🔐 Change Password</h5>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    <div class="mb-3">
+                        <label class="form-label">Current Password</label>
+                        <input type="password" class="form-control" name="current_password" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">New Password</label>
+                        <input type="password" class="form-control" name="new_password" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Confirm New Password</label>
+                        <input type="password" class="form-control" name="confirm_password" required>
+                    </div>
+                    <button type="submit" class="btn btn-danger w-100">Update Password</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

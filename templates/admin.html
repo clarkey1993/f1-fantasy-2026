@@ -1,0 +1,118 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12 mb-4">
+        <h2 class="border-bottom pb-2">🔐 Commissioner Panel</h2>
+        <p class="text-muted">Manage race results and league scoring.</p>
+    </div>
+</div>
+
+<!-- Connection Status -->
+<div class="alert {% if google_sync_status %}alert-success{% else %}alert-warning{% endif %} shadow-sm mb-4">
+    <h5 class="alert-heading mb-1">☁️ Google Sheets Connection: <strong>{% if google_sync_status %}Active{% else %}Inactive{% endif %}</strong></h5>
+    {% if google_sync_status %}
+        <small>Data is being saved to both <code>league_data.csv</code> and your Google Sheet.</small>
+    {% else %}
+        <small>⚠️ <strong>Local Mode Only.</strong> To enable Google Sheets sync, place your <code>service_account.json</code> file in the project folder.</small>
+    {% endif %}
+</div>
+
+<!-- Notice Board Section -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-info text-dark fw-bold">📢 League Notice Board</div>
+            <div class="card-body">
+                <form action="{{ url_for('admin_notice') }}" method="post">
+                    <label class="form-label">Enter a message for the Leaderboard (leave empty to clear):</label>
+                    <textarea class="form-control mb-3" name="notice_msg" rows="2">{{ notice }}</textarea>
+                    <button type="submit" class="btn btn-info text-white">Update Notice</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Race Sync Section -->
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header bg-danger text-white fw-bold">🏁 Race Operations</div>
+            <div class="card-body">
+                <form action="{{ url_for('admin_sync') }}" method="post">
+                    <input type="hidden" name="action" value="sync">
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Select Race to Sync</label>
+                        <select class="form-select" name="race_name">
+                            {% for race in races %}
+                            <option value="{{ race }}">{{ race }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <label class="form-label">Race Payouts (£/€)</label>
+                    <div class="row g-2 mb-4">
+                        <div class="col-3">
+                            <input type="number" class="form-control" name="p1" value="20" placeholder="1st">
+                        </div>
+                        <div class="col-3">
+                            <input type="number" class="form-control" name="p2" value="15" placeholder="2nd">
+                        </div>
+                        <div class="col-3">
+                            <input type="number" class="form-control" name="p3" value="10" placeholder="3rd">
+                        </div>
+                        <div class="col-3">
+                            <input type="number" class="form-control" name="p_rest" value="5" placeholder="4th-12th">
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100">🔄 Sync Race & Update Standings</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Testing Section -->
+    <div class="col-md-6">
+        <div class="card border-warning">
+            <div class="card-header bg-warning text-dark fw-bold">🧪 System Testing</div>
+            <div class="card-body">
+                <p>Run a simulation using a random race from last season to test the scoring engine.</p>
+                <form action="{{ url_for('admin_sync') }}" method="post">
+                    <input type="hidden" name="action" value="test">
+                    <button type="submit" class="btn btn-warning w-100">🚀 Run Stress Test</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Data Management -->
+        <div class="card mt-4">
+            <div class="card-header bg-secondary text-white fw-bold">📂 Data Management</div>
+            <div class="card-body">
+                <p class="text-muted small mb-2">Last Local Update: <strong>{{ last_update }}</strong></p>
+                <form action="{{ url_for('admin_clear_cache') }}" method="post" class="mb-2">
+                    <button type="submit" class="btn btn-warning w-100">🧹 Clear FastF1 Cache (Fix Stale Data)</button>
+                </form>
+                <a href="{{ url_for('admin_pull_sheet') }}" class="btn btn-primary w-100 mb-2">☁️ Pull Data from Google Sheet</a>
+                <a href="{{ url_for('admin_export') }}" class="btn btn-secondary w-100">📥 Download League Backup (CSV)</a>
+            </div>
+        </div>
+
+        <!-- Danger Zone -->
+        <div class="card mt-4 border-danger">
+            <div class="card-header bg-danger text-white fw-bold">⚠️ Danger Zone</div>
+            <div class="card-body">
+                <p class="text-danger small">These actions cannot be undone.</p>
+                <form action="{{ url_for('admin_reset_scores') }}" method="post" onsubmit="return confirm('Are you sure you want to reset all SCORES to 0? Teams will be kept.');" class="mb-3">
+                    <button type="submit" class="btn btn-warning w-100">🔄 Reset Scores Only (Keep Teams)</button>
+                </form>
+                <form action="{{ url_for('admin_reset') }}" method="post" onsubmit="return confirm('Are you sure you want to WIPE the entire league database?');">
+                    <button type="submit" class="btn btn-danger w-100">🗑️ RESET LEAGUE (Wipe Data)</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

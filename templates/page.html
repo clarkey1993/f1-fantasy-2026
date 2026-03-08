@@ -1,0 +1,12 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="row mt-4">
+    <div class="col-12">
+        <h2 class="mb-4 border-bottom pb-2">{{ heading }}</h2>
+        <div class="content">
+            {{ content | safe }}
+        </div>
+    </div>
+</div>
+{% endblock %}

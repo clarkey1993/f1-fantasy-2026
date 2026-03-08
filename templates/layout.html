@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ title }} | F1 Fantasy {{ year }}</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script>
+      // Theme management logic
+      const getStoredTheme = () => localStorage.getItem('theme');
+      const setStoredTheme = theme => localStorage.setItem('theme', theme);
+
+      const setTheme = theme => {
+        if (theme === 'auto') {
+            localStorage.removeItem('theme');
+            document.documentElement.setAttribute('data-bs-theme', (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+        } else {
+            setStoredTheme(theme);
+            document.documentElement.setAttribute('data-bs-theme', theme);
+        }
+      };
+
+      // Apply on load
+      setTheme(getStoredTheme() || 'auto');
+
+      // Listen for system changes
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+        if (!getStoredTheme()) setTheme('auto');
+      });
+    </script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        [data-bs-theme="light"] body { background-color: #f8f9fa; } /* Only use light gray in light mode */
+        [data-bs-theme="dark"] { --bs-body-color: #ffffff; --bs-body-color-rgb: 255, 255, 255; --bs-heading-color: #ffffff; } /* Force pure white text */
+        .navbar { background-color: #e10600; box-shadow: 0 2px 4px rgba(0,0,0,0.2); } /* F1 Red */
+        .navbar-brand, .nav-link { color: white !important; font-weight: 700; }
+        .nav-link:hover { color: #ffcccc !important; }
+        .btn-primary { background-color: #e10600; border-color: #e10600; }
+        .btn-primary:hover { background-color: #b30000; border-color: #b30000; }
+        .card { border: none; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border-radius: 8px; }
+    </style>
+  </head>
+  <body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg mb-4">
+      <div class="container">
+        <a class="navbar-brand" href="{{ url_for('home') }}">🏎️ F1 Fantasy {{ year }}</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+          <ul class="navbar-nav me-auto">
+            <li class="nav-item"><a class="nav-link" href="{{ url_for('home') }}">Leaderboard</a></li>
+            <li class="nav-item"><a class="nav-link" href="{{ url_for('news') }}">Latest News & Results</a></li>
+            <li class="nav-item"><a class="nav-link" href="{{ url_for('standings') }}"><img src="https://upload.wikimedia.org/wikipedia/commons/3/33/F1.svg" alt="F1" height="14" style="filter: brightness(0) invert(1); margin-right: 2px; vertical-align: -1px;"> Standings</a></li>
+            <li class="nav-item"><a class="nav-link" href="{{ url_for('signup') }}">Rules & Signup</a></li>
+          </ul>
+          <ul class="navbar-nav">
+            <li class="nav-item"><a class="nav-link" href="{{ url_for('my_team') }}">My Team</a></li>
+            {% if session.get('user') %}
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">{{ session['user'] }}</a>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        {% if session['user'] == 'Admin' %}
+                        <li><a class="dropdown-item" href="{{ url_for('admin') }}">Admin</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        {% endif %}
+                        <li><a class="dropdown-item" href="{{ url_for('settings') }}">Settings</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="{{ url_for('logout') }}">Logout</a></li>
+                    </ul>
+                </li>
+            {% else %}
+                <li class="nav-item"><a class="nav-link" href="{{ url_for('login') }}">Login</a></li>
+            {% endif %}
+          </ul>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+        
+        {% block content %}{% endblock %}
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  </body>
+</html>

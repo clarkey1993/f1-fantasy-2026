@@ -1,0 +1,179 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<style>
+    .team-card {
+        padding: 10px;
+        border-radius: 10px;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        color: white;
+        overflow: hidden;
+        height: 70px;
+    }
+    .team-card-left {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        z-index: 2;
+    }
+    .team-logo {
+        width: 35px;
+        height: 35px;
+        object-fit: contain;
+        background: rgba(255,255,255,0.2);
+        border-radius: 50%;
+        padding: 3px;
+    }
+    .team-info {
+        line-height: 1.2;
+    }
+    .team-name {
+        font-weight: 800;
+        font-size: 15px;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+    }
+    .team-subtext {
+        font-size: 11px;
+        opacity: 0.95;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+    }
+    .team-car {
+        height: 55px;
+        object-fit: contain;
+        transform: scale(1.3) translateX(10px);
+    }
+</style>
+
+<div class="mb-4">
+    {% if session.get('user') == user['Nickname'] %}
+        <h1 class="fw-bold">Welcome, {{ user['Name'] }}!</h1>
+        <p class="text-muted">Team: <strong>{{ user['Nickname'] }}</strong></p>
+    {% else %}
+        <a href="{{ url_for('home') }}" class="btn btn-sm btn-outline-secondary mb-2">← Back to Leaderboard</a>
+        <h1 class="fw-bold">{{ user['Nickname'] }}</h1>
+        <p class="text-muted">Manager: <strong>{{ user['Name'] }}</strong></p>
+        <div class="alert alert-info py-1 px-3 d-inline-block"><small>👀 Viewing Team Profile</small></div>
+    {% endif %}
+</div>
+
+<!-- Metrics Section (4 Columns like Streamlit) -->
+{% if session.get('user') == user['Nickname'] %}
+<div class="row mb-5">
+    <!-- Rank -->
+    <div class="col-md-3 col-6 mb-3">
+        <div class="card p-3 shadow-sm h-100 border-0">
+            <div class="text-muted small text-uppercase fw-bold mb-1">🏆 League Rank</div>
+            <div class="d-flex align-items-baseline">
+                <h2 class="mb-0 me-2">#{{ user['Pos']|int }}</h2>
+                {% set prev = user['Previous Pos']|int %}
+                {% set curr = user['Pos']|int %}
+                {% if prev > 0 %}
+                    {% set diff = prev - curr %}
+                    {% if diff > 0 %}
+                        <small class="text-success fw-bold">▲ {{ diff }}</small>
+                    {% elif diff < 0 %}
+                        <small class="text-danger fw-bold">▼ {{ diff|abs }}</small>
+                    {% else %}
+                        <small class="text-muted fw-bold">-</small>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Points -->
+    <div class="col-md-3 col-6 mb-3">
+        <div class="card p-3 shadow-sm h-100 border-0">
+            <div class="text-muted small text-uppercase fw-bold mb-1">🏁 Total Points</div>
+            <div class="d-flex align-items-baseline">
+                <h2 class="mb-0 me-2">{{ user['Current Score']|int }}</h2>
+                {% set last = user['Last Race Pts']|int %}
+                {% if last > 0 %}
+                    <small class="text-success fw-bold">+{{ last }} last race</small>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Net Profit -->
+    <div class="col-md-3 col-6 mb-3">
+        <div class="card p-3 shadow-sm h-100 border-0">
+            <div class="text-muted small text-uppercase fw-bold mb-1">💸 Net Profit</div>
+            {% set winnings = user['Total Winnings']|float %}
+            {% set spent = user['Total Spent']|float %}
+            {% set profit = winnings - spent %}
+            <h2 class="mb-0 {% if profit >= 0 %}text-success{% else %}text-danger{% endif %}">
+                £{{ "%.2f"|format(profit) }}
+            </h2>
+        </div>
+    </div>
+
+    <!-- Total Winnings -->
+    <div class="col-md-3 col-6 mb-3">
+        <div class="card p-3 shadow-sm h-100 border-0">
+            <div class="text-muted small text-uppercase fw-bold mb-1">💰 Total Winnings</div>
+            <h2 class="mb-0 text-body">£{{ "%.2f"|format(user['Total Winnings']|float) }}</h2>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="row">
+    <div class="col-12 mb-3">
+        <h3 class="fw-bold">🏎️ Your {{ year }} Garage</h3>
+    </div>
+
+    <!-- Drivers Column -->
+    <div class="col-lg-6 mb-4">
+        <h4 class="border-bottom pb-2 mb-3">🧑‍✈️ Drivers</h4>
+        <div class="row">
+            {% for d in drivers %}
+            <div class="col-md-6 mb-2">
+                <!-- Exact style from Streamlit -->
+                <div class="team-card" data-team-color="{{ d.color }}">
+                    <div class="team-card-left">
+                        <img src="{{ d.logo }}" class="team-logo">
+                        <div class="team-info">
+                            <div class="team-name">{{ d.name }}</div>
+                            <div class="team-subtext">{{ d.team }}</div>
+                        </div>
+                    </div>
+                    <img src="{{ d.car }}" class="team-car">
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Constructors Column -->
+    <div class="col-lg-6 mb-4">
+        <h4 class="border-bottom pb-2 mb-3">🛠️ Constructors</h4>
+        <div class="row">
+            {% for c in constructors %}
+            <div class="col-md-6 mb-2">
+                <div class="team-card" data-team-color="{{ c.color }}">
+                    <div class="team-card-left">
+                        <img src="{{ c.logo }}" class="team-logo">
+                        <div class="team-info">
+                            <div class="team-name">{{ c.name }}</div>
+                        </div>
+                    </div>
+                    <img src="{{ c.car }}" class="team-car">
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<script>
+    // Apply team colors via JS to avoid IDE linter errors with inline Jinja styles
+    document.querySelectorAll('[data-team-color]').forEach(el => {
+        el.style.backgroundColor = el.getAttribute('data-team-color');
+    });
+</script>
+{% endblock %}

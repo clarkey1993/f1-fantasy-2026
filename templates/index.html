@@ -1,0 +1,90 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="py-4">
+    <div class="text-center mb-5">
+        <h1 class="display-4 fw-bold text-danger">🏆 {{ year }} League Standings</h1>
+        <p class="lead text-muted">Live updates from the F1 Fantasy League</p>
+    </div>
+
+    {% if notice %}
+    <div class="alert alert-warning shadow-sm mb-4" role="alert">
+        📢 <strong>League Notice:</strong> {{ notice }}
+    </div>
+    {% endif %}
+    
+    <!-- Latest Race Recap Section -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0">🏁 Latest Race Results</h5>
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-striped table-hover mb-0 align-middle">
+                        <thead class="table-dark">
+                            <tr>
+                                <th scope="col">Pos</th>
+                                <th scope="col">Manager</th>
+                                <th scope="col">Team Name</th>
+                                <th scope="col" class="text-end">Pts</th>
+                                <th scope="col" class="text-end">Winnings</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in race_results %}
+                            <tr>
+                                <th scope="row">{{ loop.index }}</th>
+                                <td>{{ row['Name'] }}</td>
+                                <td><a href="{{ url_for('view_team', nickname=row['Nickname']) }}" class="text-decoration-none fw-bold">{{ row['Nickname'] }}</a></td>
+                                <td class="text-end fw-bold">{{ row['Last Race Pts']|int }}</td>
+                                <td class="text-end text-success">£{{ "%.2f"|format(row['Total Winnings']) }}</td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="5" class="text-center text-muted">No data available.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Leaderboard -->
+    <div class="card shadow-sm">
+        <div class="card-header bg-danger text-white">
+            <h4 class="mb-0">🏆 Overall Standings</h4>
+        </div>
+        <div class="card-body p-0">
+            <table class="table table-striped table-hover mb-0 align-middle">
+                <thead class="table-dark">
+                    <tr>
+                        <th scope="col">Pos</th>
+                        <th scope="col">Manager</th>
+                        <th scope="col">Team Name</th>
+                        <th scope="col" class="text-end">Current Score</th>
+                        <th scope="col" class="text-end">Total Winnings</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in leaderboard %}
+                    <tr>
+                        <th scope="row" class="text-nowrap">{{ row['DisplayPos'] }}</th>
+                        <td>{{ row['Name'] }}</td>
+                        <td><a href="{{ url_for('view_team', nickname=row['Nickname']) }}" class="text-decoration-none fw-bold">{{ row['Nickname'] }}</a></td>
+                        <td class="text-end fw-bold">{{ row['Current Score']|int }}</td>
+                        <td class="text-end text-success">£{{ "%.2f"|format(row['Total Winnings']) }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="5" class="text-center py-4">No data available.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <div class="text-muted text-end mt-2">
+        <small>🕒 Last Updated: {{ now.strftime('%d %b %Y, %H:%M') }}</small>
+    </div>
+</div>
+{% endblock %}
