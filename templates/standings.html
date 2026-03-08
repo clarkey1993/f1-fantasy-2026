@@ -14,7 +14,7 @@
                 <tbody>
                     {% for d in drivers %}
                     <tr>
-                        <td>{{ d.pos }}</td>
+                        <td>{{ loop.index }}</td>
                         <td class="fw-bold">{{ d.name }}</td>
                         <td><small>{{ d.team }}</small></td>
                         <td>{{ d.pts }}</td>
@@ -35,7 +35,7 @@
                 <tbody>
                     {% for c in constructors %}
                     <tr>
-                        <td>{{ c.pos }}</td>
+                        <td>{{ loop.index }}</td>
                         <td class="fw-bold">{{ c.team }}</td>
                         <td>{{ c.pts }}</td>
                     </tr>
@@ -45,7 +45,7 @@
         </div>
     </div>
     <div class="col-12 mt-3 text-center text-muted">
-        <small>Data provided by Jolpica (Ergast API). Updates typically occur 6-12 hours after the race.</small>
+        <small>Updates typically occur 6-12 hours after the race.</small>
     </div>
 </div>
 {% endblock %}
