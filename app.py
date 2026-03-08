@@ -411,7 +411,7 @@ def view_team(nickname):
     
     user = user_row.iloc[0]
     drivers, constructors = parse_picks(user['Picks'])
-    return render_template('dashboard.html', title="My Team", user=user, drivers=drivers, constructors=constructors)
+    return render_template('dashboard.html', title=f"{user['Nickname']}'s Team", user=user, drivers=drivers, constructors=constructors)
 
 @app.route('/news')
 def news():
