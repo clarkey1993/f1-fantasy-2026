@@ -100,14 +100,16 @@ def run_sync(conn, url, year, round_name, race_payouts=None, is_test=False):
                         
                         # 1. GRID POINTS (20 for 1st ... 1 for 20th)
                         try:
-                            grid = int(d['GridPosition'])
+                            grid_val = d.get('GridPosition', 0)
+                            if pd.isna(grid_val):
+                                grid_val = 0
+                            grid = int(grid_val)
                         except:
                             grid = 0
                         
                         # Handle DNS (Did Not Start)
                         status = str(d['Status'])
                         if status == 'Did not start':
-                            this_race_total += 0
                             continue # No points for the weekend
 
                         # Handle Pit Lane Starts (Grid=0) -> 1 point (Pos 20)
@@ -124,15 +126,20 @@ def run_sync(conn, url, year, round_name, race_payouts=None, is_test=False):
 
                         # 2. LAP POINTS (1 pt per lap)
                         try:
-                            laps = int(d['Laps'])
-                            this_race_total += laps
+                            laps_val = d.get('Laps', 0)
+                            if pd.isna(laps_val):
+                                laps_val = 0
+                            this_race_total += int(laps_val)
                         except:
                             pass
                         
                         # 3. FINISHING POINTS (Only if actually finished)
                         if check_finished(status):
                             try:
-                                finish = int(d['ClassifiedPosition'])
+                                finish_val = d.get('ClassifiedPosition', 20)
+                                if pd.isna(finish_val):
+                                    finish_val = 20
+                                finish = int(finish_val)
                             except:
                                 finish = 20
 
