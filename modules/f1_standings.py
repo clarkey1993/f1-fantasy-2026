@@ -8,7 +8,7 @@ def show_f1_standings():
     try:
         # 1. Fetch Drivers Standings
         # Use Jolpica mirror (Ergast replacement) for better stability
-        url_d = "https://api.jolpi.ca/ergast/f1/current/driverStandings.json"
+        url_d = "https://api.jolpi.ca/ergast/f1/current/driverStandings.json?limit=100"
         res_d = requests.get(url_d, timeout=5)
         data_d = res_d.json()
         
@@ -33,7 +33,7 @@ def show_f1_standings():
         df_drivers = pd.DataFrame(d_rows)
 
         # 2. Fetch Constructors Standings
-        url_c = "https://api.jolpi.ca/ergast/f1/current/constructorStandings.json"
+        url_c = "https://api.jolpi.ca/ergast/f1/current/constructorStandings.json?limit=100"
         res_c = requests.get(url_c, timeout=5)
         data_c = res_c.json()
         
