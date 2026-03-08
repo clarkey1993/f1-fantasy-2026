@@ -398,13 +398,10 @@ def news():
     next_session = get_next_session_info()
     countdown = None
     if next_session:
-        delta = next_session['date'] - datetime.datetime.now(datetime.timezone.utc)
-        days = delta.days
-        hours, rem = divmod(delta.seconds, 3600)
-        mins, _ = divmod(rem, 60)
+        # Pass ISO format for JavaScript to handle real-time countdown
         countdown = {
             "name": next_session['name'],
-            "time": f"{days}d {hours}h {mins}m"
+            "target": next_session['date'].isoformat()
         }
 
     # 2. Latest Results

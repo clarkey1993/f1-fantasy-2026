@@ -11,7 +11,7 @@
             <div class="card-body py-2">
                 <small class="text-muted text-uppercase fw-bold">Next Session</small>
                 <div class="fw-bold text-primary">{{ countdown.name }}</div>
-                <div class="h4 mb-0">{{ countdown.time }}</div>
+                <div class="h4 mb-0" id="f1-countdown" data-target="{{ countdown.target }}">Loading...</div>
             </div>
         </div>
         {% endif %}
@@ -77,5 +77,31 @@
         el.style.color = el.getAttribute('data-color');
         el.style.fontWeight = 'bold';
     });
+
+    // Real-time Countdown Timer
+    const countdownEl = document.getElementById('f1-countdown');
+    if (countdownEl) {
+        const targetTime = new Date(countdownEl.getAttribute('data-target')).getTime();
+        
+        function updateCountdown() {
+            const now = new Date().getTime();
+            const diff = targetTime - now;
+            
+            if (diff <= 0) {
+                countdownEl.innerText = "Session Live / Completed";
+                return;
+            }
+            
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            
+            countdownEl.innerText = `${days}d ${hours}h ${minutes}m ${seconds}s`;
+        }
+        
+        setInterval(updateCountdown, 1000);
+        updateCountdown(); // Initial call
+    }
 </script>
 {% endblock %}
