@@ -25,6 +25,7 @@
                         <thead class="table-dark">
                             <tr>
                                 <th scope="col">Pos</th>
+                                <th scope="col">Manager</th>
                                 <th scope="col">Team Name</th>
                                 <th scope="col" class="text-end">Pts</th>
                                 <th scope="col" class="text-end">Winnings</th>
@@ -34,12 +35,13 @@
                             {% for row in race_results %}
                             <tr>
                                 <th scope="row">{{ loop.index }}</th>
-                                <td>{{ row['Nickname'] }}</td>
+                                <td>{{ row['Name'] }}</td>
+                                <td><a href="{{ url_for('view_team', nickname=row['Nickname']) }}" class="text-decoration-none fw-bold">{{ row['Nickname'] }}</a></td>
                                 <td class="text-end fw-bold">{{ row['Last Race Pts']|int }}</td>
                                 <td class="text-end text-success">£{{ "%.2f"|format(row['Total Winnings']) }}</td>
                             </tr>
                             {% else %}
-                            <tr><td colspan="4" class="text-center text-muted">No data available.</td></tr>
+                            <tr><td colspan="5" class="text-center text-muted">No data available.</td></tr>
                             {% endfor %}
                         </tbody>
                     </table>

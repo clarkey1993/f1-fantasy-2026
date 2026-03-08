@@ -145,6 +145,12 @@ def get_league_data():
         if c not in df.columns:
             df[c] = 0
         df[c] = pd.to_numeric(df[c], errors='coerce').fillna(0)
+    
+    # Ensure string columns exist and are filled (Fix for missing names/nicks)
+    for c in ['Name', 'Nickname', 'Email', 'Picks']:
+        if c not in df.columns:
+            df[c] = ""
+        df[c] = df[c].fillna("Unknown")
         
     return df
 
@@ -375,10 +381,12 @@ def home():
         return render_template('index.html', title="Home", leaderboard=[], race_results=[], notice=notice_msg)
     
     # 1. Latest Race Recap Data
-    race_results = df.sort_values(by='Last Race Pts', ascending=False).to_dict(orient='records')
+    # Sort by Points (desc), then Name (asc) for consistent ordering of 0-pointers
+    race_results = df.sort_values(by=['Last Race Pts', 'Name'], ascending=[False, True]).to_dict(orient='records')
     
     # 2. Main Leaderboard Data
-    df = df.sort_values(by=['Current Score', 'Total Winnings'], ascending=False)
+    # Sort by Score (desc), Winnings (desc), then Name (asc)
+    df = df.sort_values(by=['Current Score', 'Total Winnings', 'Name'], ascending=[False, False, True])
     
     leaderboard_data = []
     for i, (index, row) in enumerate(df.iterrows()):
@@ -457,10 +465,43 @@ def view_team(nickname):
     drivers, constructors = parse_picks(user['Picks'])
     return render_template('dashboard.html', title=f"{user['Nickname']}'s Team", user=user, drivers=drivers, constructors=constructors)
 
-@app.route('/settings')
+@app.route('/settings', methods=['GET', 'POST'])
 def settings():
     if 'user' not in session:
         return redirect(url_for('login'))
+    
+    if request.method == 'POST':
+        current_pw = request.form.get('current_password')
+        new_pw = request.form.get('new_password')
+        confirm_pw = request.form.get('confirm_password')
+        
+        if not all([current_pw, new_pw, confirm_pw]):
+            flash("All password fields are required.", "danger")
+        elif new_pw != confirm_pw:
+            flash("New passwords do not match.", "danger")
+        else:
+            df = get_league_data()
+            # Find user by nickname
+            user_mask = df['Nickname'] == session['user']
+            
+            if not user_mask.any():
+                if session['user'] == 'Admin':
+                    flash("Admin password cannot be changed here.", "warning")
+                else:
+                    flash("User record not found.", "danger")
+            else:
+                user_idx = df.index[user_mask][0]
+                stored_pw = str(df.at[user_idx, 'Password'])
+                
+                if stored_pw != current_pw:
+                    flash("Current password is incorrect.", "danger")
+                else:
+                    df.at[user_idx, 'Password'] = new_pw
+                    if save_league_data(df):
+                        flash("Password updated successfully!", "success")
+                    else:
+                        flash("Error saving password. Please try again.", "danger")
+
     return render_template('settings.html', title="Settings")
 
 @app.route('/news')

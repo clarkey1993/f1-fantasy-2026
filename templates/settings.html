@@ -18,6 +18,29 @@
                 </div>
             </div>
         </div>
+
+        <div class="card mt-4">
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0">🔐 Change Password</h5>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    <div class="mb-3">
+                        <label class="form-label">Current Password</label>
+                        <input type="password" class="form-control" name="current_password" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">New Password</label>
+                        <input type="password" class="form-control" name="new_password" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Confirm New Password</label>
+                        <input type="password" class="form-control" name="confirm_password" required>
+                    </div>
+                    <button type="submit" class="btn btn-danger w-100">Update Password</button>
+                </form>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}
