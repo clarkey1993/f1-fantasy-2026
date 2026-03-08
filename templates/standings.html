@@ -17,7 +17,7 @@
                         <td class="text-center">{{ loop.index }}</td>
                         <td>
                             <div class="d-flex align-items-center">
-                                <img src="{{ d.image }}" class="rounded-circle me-2" style="width: 40px; height: 40px; object-fit: cover; object-position: top; border: 2px solid {{ d.color }}; padding: 1px; background-color: #fff;">
+                                <img src="{{ d.image }}" class="rounded-circle me-2 driver-img" data-border-color="{{ d.color }}" style="width: 40px; height: 40px; object-fit: cover; object-position: top; padding: 1px; background-color: #fff;">
                                 <span class="fw-bold">{{ d.name }}</span>
                             </div>
                         </td>
@@ -42,7 +42,7 @@
                     <tr>
                         <td class="text-center">{{ loop.index }}</td>
                         <td>
-                            <span class="d-inline-block rounded-circle me-2" style="width: 12px; height: 12px; background-color: {{ c.color }};"></span>
+                            <span class="d-inline-block rounded-circle me-2 team-dot" data-bg-color="{{ c.color }}" style="width: 12px; height: 12px;"></span>
                             <span class="fw-bold">{{ c.team }}</span>
                         </td>
                         <td>{{ c.pts }}</td>
@@ -56,4 +56,14 @@
         <small>Updates typically occur 6-12 hours after the race.</small>
     </div>
 </div>
+
+<script>
+    // Apply dynamic colors via JS to avoid CSS validation errors
+    document.querySelectorAll('.driver-img').forEach(el => {
+        el.style.border = `2px solid ${el.getAttribute('data-border-color')}`;
+    });
+    document.querySelectorAll('.team-dot').forEach(el => {
+        el.style.backgroundColor = el.getAttribute('data-bg-color');
+    });
+</script>
 {% endblock %}
