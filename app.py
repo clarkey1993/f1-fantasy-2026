@@ -642,6 +642,8 @@ def admin_clear_cache():
         return redirect(url_for('home'))
     
     try:
+        # Disable cache to release file locks (Windows fix)
+        fastf1.Cache.set_disabled()
         if os.path.exists('f1_cache'):
             shutil.rmtree('f1_cache')
         flash("✅ System cache cleared! FastF1 will re-download fresh data on next request.", "success")

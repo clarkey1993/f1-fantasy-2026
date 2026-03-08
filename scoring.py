@@ -4,10 +4,11 @@ import os
 import ast
 import random
 
-# Cache setup for fast loading
-if not os.path.exists('f1_cache'):
-    os.makedirs('f1_cache')
-fastf1.Cache.enable_cache('f1_cache') 
+# Cache setup is now handled inside the function or by the main app
+# to prevent file lock issues on import/reload.
+# if not os.path.exists('f1_cache'):
+#     os.makedirs('f1_cache')
+# fastf1.Cache.enable_cache('f1_cache') 
 
 DRIVER_MAP = {
     "Charles Leclerc": "LEC", "George Russell": "RUS", "Lando Norris": "NOR",
@@ -55,6 +56,11 @@ def calculate_race_scores(df, year, round_name, race_payouts=None, is_test=False
     Returns: (updated_df, log_message)
     """
     try:
+        # Ensure cache is enabled for performance
+        if not os.path.exists('f1_cache'):
+            os.makedirs('f1_cache')
+        fastf1.Cache.enable_cache('f1_cache')
+
         # 1. Get Race Data
         if is_test:
             # Pick a random race from previous year for testing
