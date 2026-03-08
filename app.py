@@ -457,6 +457,12 @@ def view_team(nickname):
     drivers, constructors = parse_picks(user['Picks'])
     return render_template('dashboard.html', title=f"{user['Nickname']}'s Team", user=user, drivers=drivers, constructors=constructors)
 
+@app.route('/settings')
+def settings():
+    if 'user' not in session:
+        return redirect(url_for('login'))
+    return render_template('settings.html', title="Settings")
+
 @app.route('/news')
 def news():
     # 1. Countdown

@@ -61,6 +61,7 @@
 </div>
 
 <!-- Metrics Section (4 Columns like Streamlit) -->
+{% if session.get('user') == user['Nickname'] %}
 <div class="row mb-5">
     <!-- Rank -->
     <div class="col-md-3 col-6 mb-3">
@@ -119,6 +120,7 @@
         </div>
     </div>
 </div>
+{% endif %}
 
 <div class="row">
     <div class="col-12 mb-3">

@@ -62,15 +62,12 @@
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">{{ session['user'] }}</a>
                     <ul class="dropdown-menu dropdown-menu-end">
-                        <li><h6 class="dropdown-header">Appearance</h6></li>
-                        <li><button class="dropdown-item" onclick="setTheme('light')">☀️ Light</button></li>
-                        <li><button class="dropdown-item" onclick="setTheme('dark')">🌙 Dark</button></li>
-                        <li><button class="dropdown-item" onclick="setTheme('auto')">⚙️ System</button></li>
-                        <li><hr class="dropdown-divider"></li>
                         {% if session['user'] == 'Admin' %}
                         <li><a class="dropdown-item" href="{{ url_for('admin') }}">Admin</a></li>
                         <li><hr class="dropdown-divider"></li>
                         {% endif %}
+                        <li><a class="dropdown-item" href="{{ url_for('settings') }}">Settings</a></li>
+                        <li><hr class="dropdown-divider"></li>
                         <li><a class="dropdown-item" href="{{ url_for('logout') }}">Logout</a></li>
                     </ul>
                 </li>
