@@ -34,12 +34,16 @@ CREDENTIALS_FILE = 'service_account.json'
 # Deployment: Check for Secret File (Render) or Env Var
 if os.path.exists('/etc/secrets/service_account.json'):
     CREDENTIALS_FILE = '/etc/secrets/service_account.json'
+elif os.path.exists('service_account.json'):
+    CREDENTIALS_FILE = 'service_account.json'
 elif os.path.exists('service_account.json.json'):
     # Handle Windows double extension issue locally
     CREDENTIALS_FILE = 'service_account.json.json'
 elif os.environ.get('GOOGLE_SHEETS_CREDS_JSON'):
     with open(CREDENTIALS_FILE, 'w') as f:
         f.write(os.environ.get('GOOGLE_SHEETS_CREDS_JSON'))
+
+print(f"🔑 Using Credentials File: {CREDENTIALS_FILE}")
 
 TEAM_CONFIG = {
     "Ferrari": {"color": "#E80020", "slug": "ferrari"},
