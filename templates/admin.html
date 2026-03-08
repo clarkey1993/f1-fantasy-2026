@@ -76,13 +76,13 @@
 
     <!-- Testing Section -->
     <div class="col-md-6">
-        <div class="card h-100 border-warning">
+        <div class="card border-warning">
             <div class="card-header bg-warning text-dark fw-bold">🧪 System Testing</div>
             <div class="card-body">
                 <p>Run a simulation using a random race from last season to test the scoring engine.</p>
                 <form action="{{ url_for('admin_sync') }}" method="post">
                     <input type="hidden" name="action" value="test">
-                    <button type="submit" class="btn btn-outline-dark w-100">🚀 Run Stress Test</button>
+                    <button type="submit" class="btn btn-warning w-100">🚀 Run Stress Test</button>
                 </form>
             </div>
         </div>
