@@ -34,7 +34,7 @@
                         <tbody>
                             {% for row in race_results %}
                             <tr>
-                                <th scope="row">{{ loop.index }}</th>
+                                <th scope="row" class="text-nowrap">{{ row['DisplayPos'] }}</th>
                                 <td>{{ row['Name'] }}</td>
                                 <td><a href="{{ url_for('view_team', nickname=row['Nickname']) }}" class="text-decoration-none fw-bold">{{ row['Nickname'] }}</a></td>
                                 <td class="text-end fw-bold">{{ row['Last Race Pts']|int }}</td>

@@ -147,7 +147,7 @@ def calculate_race_scores(df, year, round_name, race_payouts=None, is_test=False
                             grid = 20
 
                         # Scoring Logic
-                        this_race_total += (21 - grid) # Grid Pts
+                        this_race_total += max(0, 21 - grid) # Grid Pts
                         
                         # Handle Disqualification (DSQ)
                         if 'Disqualified' in status or 'Excluded' in status:

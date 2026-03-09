@@ -163,7 +163,12 @@ def get_league_data():
     return df
 
 def save_league_data(df):
-    """Saves to local CSV and attempts to sync to Google Sheet."""
+    """Saves to local CSV and attempts to sync to Google Sheet.
+    Returns:
+        True: Sync successful.
+        'skipped': Sync was skipped (no credentials).
+        False: Sync failed with an error.
+    """
     # 1. Save Local
     df.to_csv(DATA_FILE, index=False)
     
@@ -186,13 +191,13 @@ def save_league_data(df):
             ws.resize(rows=len(data))
             
             print("Synced to Google Sheet")
-            return True
+            return True # Success
         except Exception as e:
             print(f"Google Sheet Sync Failed: {e}")
-            return False
+            return False # Failure
     else:
-        print(f"⚠️ Skipping Google Sheet Sync: '{CREDENTIALS_FILE}' not found. Data saved locally only.")
-        return True
+        print(f"⚠️ Skipping Google Sheet Sync: '{os.path.abspath(CREDENTIALS_FILE)}' not found. Data saved locally only.")
+        return 'skipped' # Skipped
 
 def get_team_details(name, is_constructor=False):
     """Returns color, slug, and team name for a driver/constructor."""
@@ -390,8 +395,15 @@ def home():
     
     # 1. Latest Race Recap Data
     # Sort by Points (desc), then Name (asc) for consistent ordering of 0-pointers
-    race_results = df.sort_values(by=['Last Race Pts', 'Name'], ascending=[False, True]).to_dict(orient='records')
-    
+    race_results_df = df.sort_values(by=['Last Race Pts', 'Name'], ascending=[False, True])
+    race_results = []
+    for i, (index, row) in enumerate(race_results_df.iterrows()):
+        row_dict = row.to_dict()
+        # Format Position: (Prev Overall) Weekend Rank
+        prev = int(row['Previous Pos']) if row['Previous Pos'] > 0 else "-"
+        row_dict['DisplayPos'] = f"({prev}) {i + 1}"
+        race_results.append(row_dict)
+
     # 2. Main Leaderboard Data
     # Sort by Score (desc), Winnings (desc), then Name (asc)
     df = df.sort_values(by=['Current Score', 'Total Winnings', 'Name'], ascending=[False, False, True])
@@ -505,10 +517,13 @@ def settings():
                     flash("Current password is incorrect.", "danger")
                 else:
                     df.at[user_idx, 'Password'] = new_pw
-                    if save_league_data(df):
+                    save_status = save_league_data(df)
+                    if save_status is not False:
                         flash("Password updated successfully!", "success")
+                        if save_status == 'skipped':
+                            flash("Note: Changes saved locally. Google Sheet sync is inactive.", "info")
                     else:
-                        flash("Error saving password. Please try again.", "danger")
+                        flash("Error saving password to Google Sheets. Please try again.", "danger")
 
     return render_template('settings.html', title="Settings")
 
@@ -692,8 +707,12 @@ def signup():
             # 5. Save
             new_row = {"Name": name, "Nickname": nickname, "Email": email, "Password": password, "Picks": str(all_picks), "Current Score": 0, "Total Winnings": 0, "Pos": 0, "Previous Pos": 0, "Last Race Pts": 0, "Total Spent": 0}
             updated_df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True) if not df.empty else pd.DataFrame([new_row])
-            save_league_data(updated_df)
+            save_status = save_league_data(updated_df)
             flash("✅ Registration successful! Good luck!", "success")
+            if save_status == 'skipped':
+                flash("Your registration is saved locally. The commissioner will sync it to the master sheet.", "info")
+            elif save_status is False:
+                flash("❌ Registration saved locally, but failed to sync to the Google Sheet. Please contact the commissioner.", "danger")
             return redirect(url_for('home'))
 
     return render_template('signup.html', title="Signup", countdown=countdown_str, open=signups_open)
@@ -835,7 +854,7 @@ def admin_sync():
             p2 = float(request.form.get('p2', 0))
             p3 = float(request.form.get('p3', 0))
             p_rest = float(request.form.get('p_rest', 0))
-            payouts = [p1, p2, p3] + [p_rest] * 9
+            payouts = [p1, p2, p3] + [p_rest] * 12
         except ValueError:
             flash("Invalid payout values.", "danger")
             return redirect(url_for('admin'))
@@ -843,10 +862,13 @@ def admin_sync():
         updated_df, msg = scoring.calculate_race_scores(df, datetime.datetime.now().year, race_name, payouts)
         
         if "Successfully" in msg:
-            if save_league_data(updated_df):
+            save_status = save_league_data(updated_df)
+            if save_status is True:
                 flash(msg, "success")
+            elif save_status == 'skipped':
+                flash(f"{msg} (Local save only. Google Sheet sync is inactive.)", "warning")
             else:
-                flash(f"{msg} (⚠️ Warning: Google Sheet sync failed. Data saved locally only.)", "warning")
+                flash(f"{msg} (Local save OK, but Google Sheet sync failed.)", "danger")
         else:
             flash(msg, "danger")
             
@@ -854,10 +876,13 @@ def admin_sync():
         test_payouts = [20, 15, 10] + [5] * 9
         updated_df, msg = scoring.calculate_race_scores(df, datetime.datetime.now().year, "Test Race", test_payouts, is_test=True)
         if "Successfully" in msg:
-            if save_league_data(updated_df):
-                flash("Test race simulation successful! Data updated.", "success")
+            save_status = save_league_data(updated_df)
+            if save_status is True:
+                flash("Test race simulation successful! Data updated and synced.", "success")
+            elif save_status == 'skipped':
+                flash("Test race simulation successful! (Local save only. Google Sheet sync is inactive.)", "warning")
             else:
-                flash("Test successful, but Google Sheet sync failed.", "warning")
+                flash("Test successful, but Google Sheet sync failed.", "danger")
         else:
             flash(msg, "danger")
             
