@@ -37,21 +37,31 @@ SHEET_ID = "150YSDU3o1SiEM1WHpPEK9pNPnGUu03qxR26H77RnApw"
 SHEET_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 DATA_FILE = 'league_data.csv'
 NOTICE_FILE = 'notice.txt'
-CREDENTIALS_FILE = 'service_account.json'
 
-# Deployment: Check for Secret File (Render) or Env Var
-if os.path.exists('/etc/secrets/service_account.json'):
-    CREDENTIALS_FILE = '/etc/secrets/service_account.json'
-elif os.path.exists('service_account.json'):
-    CREDENTIALS_FILE = 'service_account.json'
-elif os.path.exists('service_account.json.json'):
-    # Handle Windows double extension issue locally
-    CREDENTIALS_FILE = 'service_account.json.json'
-elif os.environ.get('GOOGLE_SHEETS_CREDS_JSON'):
-    with open(CREDENTIALS_FILE, 'w') as f:
-        f.write(os.environ.get('GOOGLE_SHEETS_CREDS_JSON'))
+def get_gspread_client():
+    """Authenticates with Google Sheets using Env Var, Secret File, or Local File."""
+    try:
+        # 1. Render Secret File (Best Practice)
+        if os.path.exists('/etc/secrets/service_account.json'):
+            print("🔑 Using Render Secret File")
+            return gspread.service_account(filename='/etc/secrets/service_account.json')
+            
+        # 2. Environment Variable (JSON String)
+        if os.environ.get('GOOGLE_SHEETS_CREDS_JSON'):
+            print("🔑 Using Env Var Credentials")
+            creds_dict = json.loads(os.environ.get('GOOGLE_SHEETS_CREDS_JSON'))
+            return gspread.service_account_from_dict(creds_dict)
 
-print(f"🔑 Using Credentials File: {CREDENTIALS_FILE}")
+        # 3. Local Files
+        for f in ['service_account.json', 'service_account.json.json']:
+            if os.path.exists(f):
+                print(f"🔑 Using Local File: {f}")
+                return gspread.service_account(filename=f)
+                
+    except Exception as e:
+        print(f"⚠️ Auth Error: {e}")
+    
+    return None
 
 TEAM_CONFIG = {
     "Ferrari": {"color": "#E80020", "slug": "ferrari"},
@@ -116,9 +126,9 @@ def fetch_google_sheet_data():
     """Attempts to fetch data from Google Sheets via API or CSV Export."""
     df = pd.DataFrame()
     # 1. Try API (gspread) - Best for private sheets
-    if os.path.exists(CREDENTIALS_FILE):
+    gc = get_gspread_client()
+    if gc:
         try:
-            gc = gspread.service_account(filename=CREDENTIALS_FILE)
             sh = gc.open_by_key(SHEET_ID)
             ws = sh.sheet1
             data = ws.get_all_records()
@@ -173,9 +183,9 @@ def save_league_data(df):
     df.to_csv(DATA_FILE, index=False)
     
     # 2. Try Google Sheet Sync (Push)
-    if os.path.exists(CREDENTIALS_FILE):
+    gc = get_gspread_client()
+    if gc:
         try:
-            gc = gspread.service_account(filename=CREDENTIALS_FILE)
             sh = gc.open_by_key(SHEET_ID)
             ws = sh.sheet1
             # Convert to list of lists, handling NaNs and types for Sheets
@@ -196,7 +206,7 @@ def save_league_data(df):
             print(f"Google Sheet Sync Failed: {e}")
             return False # Failure
     else:
-        print(f"⚠️ Skipping Google Sheet Sync: '{os.path.abspath(CREDENTIALS_FILE)}' not found. Data saved locally only.")
+        print(f"⚠️ Skipping Google Sheet Sync: No credentials found. Data saved locally only.")
         return 'skipped' # Skipped
 
 def get_team_details(name, is_constructor=False):
@@ -744,7 +754,7 @@ def admin():
             current_notice = f.read().strip()
             
     # Check connection status
-    google_sync_status = os.path.exists(CREDENTIALS_FILE)
+    google_sync_status = get_gspread_client() is not None
     
     # Get last data update time
     last_update = "Never"
