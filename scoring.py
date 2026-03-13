@@ -347,6 +347,17 @@ def calculate_race_scores(df, year, round_name, race_payouts=None, is_test=False
         if results.empty:
             return df, f"No results available for {event_label}."
 
+        # Log scoring run identity (mode, year, event, session)
+        mode = "sprint test" if is_test == "sprint" else ("test" if is_test else "production")
+        actual_year = (year - 1) if is_test else year
+        event_for_log = normalize_event_name(round_name)
+        ff1_event_name = str(session.event.get("EventName", "?")) if hasattr(session, "event") and session.event is not None else "?"
+        sess_type = "Sprint" if (is_test == "sprint" or (not is_test and session_type == SESSION_SPRINT)) else "Grand Prix"
+        logging.warning(
+            "[scoring] RUN IDENTITY | mode=%s | year=%s | event=%s | normalized=%s | session_type=%s | FastF1_loaded=%s %s",
+            mode, actual_year, round_name, event_for_log, sess_type, ff1_event_name, actual_year
+        )
+
         max_laps = 0
         try:
             max_laps = results['Laps'].max()
