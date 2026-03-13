@@ -17,6 +17,7 @@ from f1_config import (
     DRIVER_TEAM_MAP,
     TEAM_CONFIG,
     get_team_config,
+    LEAGUE_YEAR,
 )
 
 app = Flask(__name__)
@@ -26,7 +27,7 @@ app.secret_key = "dev_key_f1_2026"  # Required for session and flash messages
 @app.context_processor
 def inject_globals():
     return {
-        'year': 2026,
+        'year': LEAGUE_YEAR,
         'now': datetime.datetime.now()
     }
 
@@ -1046,7 +1047,7 @@ def admin_sync():
             flash("Invalid payout values.", "danger")
             return redirect(url_for('admin'))
 
-        updated_df, msg = scoring.calculate_race_scores(df, datetime.datetime.now().year, race_name, payouts)
+        updated_df, msg = scoring.calculate_race_scores(df, LEAGUE_YEAR, race_name, payouts)
         
         if "Successfully" in msg:
             save_status = save_league_data(updated_df)
@@ -1084,7 +1085,7 @@ def admin_sync():
             return redirect(url_for('admin'))
 
         default_payouts = [20, 15, 10] + [5] * 12
-        year = datetime.datetime.now().year
+        year = LEAGUE_YEAR
 
         # Rebuild season from history to correctly overwrite (no double-count)
         df = get_league_data()
@@ -1121,7 +1122,7 @@ def admin_sync():
     elif action == 'test':
         df = get_test_league_data()
         test_payouts = [20, 15, 10] + [5] * 9
-        updated_df, msg = scoring.calculate_race_scores(df, datetime.datetime.now().year, "Test Race", test_payouts, is_test=True)
+        updated_df, msg = scoring.calculate_race_scores(df, LEAGUE_YEAR, "Test Race", test_payouts, is_test=True)
         if "Successfully" in msg:
             save_test_league_data(updated_df)
             flash(f"TEST MODE: {msg} Test leaderboard updated (production untouched).", "success")
@@ -1131,7 +1132,7 @@ def admin_sync():
     elif action == 'test_sprint':
         df = get_test_league_data()
         test_payouts = [20, 15, 10] + [5] * 9
-        updated_df, msg = scoring.calculate_race_scores(df, datetime.datetime.now().year, "Test Sprint", test_payouts, is_test='sprint')
+        updated_df, msg = scoring.calculate_race_scores(df, LEAGUE_YEAR, "Test Sprint", test_payouts, is_test='sprint')
         if "Successfully" in msg:
             save_test_league_data(updated_df)
             flash(f"TEST MODE: {msg} Test leaderboard updated (production untouched).", "success")

@@ -2,6 +2,9 @@
 Shared F1 fantasy configuration - single source of truth for app.py and scoring.py.
 """
 
+# Fantasy league season year - used for production race sync and UI display
+LEAGUE_YEAR = 2026
+
 # App display names -> FastF1 three-letter abbreviation
 DRIVER_MAP = {
     "Charles Leclerc": "LEC", "George Russell": "RUS", "Lando Norris": "NOR",
