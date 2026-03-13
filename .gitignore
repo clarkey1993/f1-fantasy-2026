@@ -9,3 +9,5 @@ f1_cache/
 service_account.json
 service_account.json.json
 league_data.csv
+league_test_data.csv
+race_sync_history.json

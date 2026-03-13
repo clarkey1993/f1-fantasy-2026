@@ -6,11 +6,18 @@ import requests
 import feedparser
 import os
 import scoring
+from scoring import LEADERBOARD_SORT_BY, LEADERBOARD_SORT_ASCENDING, is_sprint_event, normalize_event_name
 import fastf1
 import re
 import gspread
 import json
 import shutil
+
+from f1_config import (
+    DRIVER_TEAM_MAP,
+    TEAM_CONFIG,
+    get_team_config,
+)
 
 app = Flask(__name__)
 app.secret_key = "dev_key_f1_2026"  # Required for session and flash messages
@@ -36,7 +43,12 @@ def add_security_headers(response):
 SHEET_ID = "150YSDU3o1SiEM1WHpPEK9pNPnGUu03qxR26H77RnApw"
 SHEET_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 DATA_FILE = 'league_data.csv'
+TEST_DATA_FILE = 'league_test_data.csv'
 NOTICE_FILE = 'notice.txt'
+HISTORY_FILE = 'race_sync_history.json'
+
+# 2026 Sprint weekend bases: GP cannot be synced before its Sprint
+SPRINT_WEEKEND_BASES = ('China', 'Miami', 'Canada', 'Great Britain', 'Netherlands', 'Singapore')
 
 def get_gspread_client():
     """Authenticates with Google Sheets using Env Var, Secret File, or Local File."""
@@ -62,42 +74,6 @@ def get_gspread_client():
         print(f"⚠️ Auth Error: {e}")
     
     return None
-
-TEAM_CONFIG = {
-    "Ferrari": {"color": "#E80020", "slug": "ferrari"},
-    "McLaren": {"color": "#FF8000", "slug": "mclaren"},
-    "Mercedes": {"color": "#27F4D2", "slug": "mercedes"},
-    "Red Bull": {"color": "#3671C6", "slug": "red-bull-racing"},
-    "Aston Martin": {"color": "#229971", "slug": "aston-martin"},
-    "Alpine": {"color": "#0093CC", "slug": "alpine"},
-    "Williams": {"color": "#64C4FF", "slug": "williams"},
-    "Racing Bulls": {"color": "#6692FF", "slug": "rb"},
-    "Haas": {"color": "#B6BABD", "slug": "haas-f1-team"},
-    "Audi": {"color": "#52E252", "slug": "kick-sauber"},
-    "Cadillac": {"color": "#FFD700", "slug": "f1"},
-}
-
-DRIVER_TEAM_MAP = {
-    "Charles Leclerc": "Ferrari", "Lewis Hamilton": "Ferrari",
-    "George Russell": "Mercedes", "Kimi Antonelli": "Mercedes",
-    "Lando Norris": "McLaren", "Oscar Piastri": "McLaren",
-    "Max Verstappen": "Red Bull", "Sergio Perez": "Red Bull", "Liam Lawson": "Red Bull",
-    "Fernando Alonso": "Aston Martin", "Lance Stroll": "Aston Martin",
-    "Pierre Gasly": "Alpine", "Jack Doohan": "Alpine",
-    "Alex Albon": "Williams", "Carlos Sainz Jnr": "Williams", "Franco Colapinto": "Williams",
-    "Esteban Ocon": "Haas", "Oliver Bearman": "Haas",
-    "Nico Hulkenberg": "Audi", "Gabriel Bortoleto": "Audi", "Valtteri Bottas": "Audi",
-    "Isack Hadjar": "Racing Bulls", "Arvid Lindblad": "Racing Bulls", "Yuki Tsunoda": "Racing Bulls"
-}
-
-def get_team_config(team_name):
-    """Helper to get team color and slug from fuzzy name match."""
-    config = TEAM_CONFIG.get("Cadillac") # Default
-    for t_key, t_val in TEAM_CONFIG.items():
-        if t_key.lower() in str(team_name).lower():
-            config = t_val
-            break
-    return config
 
 def get_driver_image(name):
     """Returns official F1 image URL or None."""
@@ -157,12 +133,13 @@ def get_league_data():
         if not df.empty:
             save_league_data(df) # Save to local for next time
 
-    # Ensure numeric columns exist
-    cols = ['Current Score', 'Total Winnings', 'Previous Pos', 'Last Race Pts', 'Total Spent']
+    # Ensure numeric columns exist (incl. tie-break cols from scoring)
+    cols = ['Current Score', 'Total Winnings', 'Previous Pos', 'Last Race Pts', 'Total Spent',
+            'Driver Race Pts', 'Constructor Race Pts', 'Top Driver Score', 'Best Finish Pos', 'Prior Best Finish Pos']
     for c in cols:
         if c not in df.columns:
-            df[c] = 0
-        df[c] = pd.to_numeric(df[c], errors='coerce').fillna(0)
+            df[c] = 999 if c in ('Best Finish Pos', 'Prior Best Finish Pos') else 0
+        df[c] = pd.to_numeric(df[c], errors='coerce').fillna(999 if c in ('Best Finish Pos', 'Prior Best Finish Pos') else 0)
     
     # Ensure string columns exist and are filled (Fix for missing names/nicks)
     for c in ['Name', 'Nickname', 'Email', 'Picks']:
@@ -208,6 +185,109 @@ def save_league_data(df):
     else:
         print(f"⚠️ Skipping Google Sheet Sync: No credentials found. Data saved locally only.")
         return 'skipped' # Skipped
+
+# --- TEST DATA HELPERS (admin testing only, never touches production) ---
+
+def get_test_league_data():
+    """Loads test league data from league_test_data.csv.
+    If file does not exist, initializes from a copy of current production league data.
+    NEVER reads/writes production CSV or Google Sheets."""
+    if os.path.exists(TEST_DATA_FILE):
+        df = pd.read_csv(TEST_DATA_FILE)
+    else:
+        df = get_league_data().copy()
+        save_test_league_data(df)
+    cols = ['Current Score', 'Total Winnings', 'Previous Pos', 'Last Race Pts', 'Total Spent',
+            'Driver Race Pts', 'Constructor Race Pts', 'Top Driver Score', 'Best Finish Pos', 'Prior Best Finish Pos']
+    for c in cols:
+        if c not in df.columns:
+            df[c] = 999 if c in ('Best Finish Pos', 'Prior Best Finish Pos') else 0
+        df[c] = pd.to_numeric(df[c], errors='coerce').fillna(999 if c in ('Best Finish Pos', 'Prior Best Finish Pos') else 0)
+    for c in ['Name', 'Nickname', 'Email', 'Picks']:
+        if c not in df.columns:
+            df[c] = ""
+        df[c] = df[c].fillna("Unknown")
+    return df
+
+def save_test_league_data(df):
+    """Saves test data to league_test_data.csv only. NEVER syncs to Google Sheets."""
+    df.to_csv(TEST_DATA_FILE, index=False)
+
+def reset_test_league_data():
+    """Resets test leaderboard by copying current production league data to league_test_data.csv."""
+    df = get_league_data().copy()
+    save_test_league_data(df)
+
+# --- PRODUCTION SYNC HISTORY (for duplicate & Sprint-before-GP validation) ---
+
+def load_sync_history():
+    """Load production sync history from race_sync_history.json. Returns list of dicts."""
+    if not os.path.exists(HISTORY_FILE):
+        return []
+    try:
+        with open(HISTORY_FILE, 'r') as f:
+            data = json.load(f)
+        return data if isinstance(data, list) else []
+    except Exception:
+        return []
+
+def save_sync_history(history):
+    """Save production sync history to race_sync_history.json."""
+    with open(HISTORY_FILE, 'w') as f:
+        json.dump(history, f, indent=2)
+
+def add_sync_to_history(event_name, session_type):
+    """Append a production sync to history."""
+    history = load_sync_history()
+    normalized = normalize_event_name(event_name)
+    entry = {
+        "event_name": event_name,
+        "normalized": normalized,
+        "session_type": "Sprint" if session_type == "Sprint" else "GP",
+        "timestamp": datetime.datetime.now().isoformat()
+    }
+    history.append(entry)
+    save_sync_history(history)
+
+def update_sync_in_history(event_name, session_type):
+    """Update existing history entry timestamp (for force resync). No duplicate entries."""
+    history = load_sync_history()
+    event_clean = (event_name or "").strip()
+    now = datetime.datetime.now().isoformat()
+    for e in history:
+        if (e.get("event_name") or "").strip() == event_clean:
+            e["timestamp"] = now
+            e["session_type"] = "Sprint" if session_type == "Sprint" else "GP"
+            save_sync_history(history)
+            return
+    # Edge case: not in history yet, add it (e.g. history was cleared)
+    add_sync_to_history(event_name, session_type)
+
+def is_event_already_synced(event_name):
+    """True if this exact event has already been synced to production."""
+    history = load_sync_history()
+    for e in history:
+        if (e.get("event_name") or "").strip() == (event_name or "").strip():
+            return True
+    return False
+
+def is_gp_on_sprint_weekend(race_name):
+    """True if selecting a GP on a weekend that has a Sprint (must sync Sprint first)."""
+    if is_sprint_event(race_name):
+        return False  # We're syncing Sprint, no check needed
+    base = normalize_event_name(race_name)
+    return base in SPRINT_WEEKEND_BASES
+
+def sprint_already_synced_for_gp(gp_race_name):
+    """For a GP like 'China', True if 'China Sprint' has been synced."""
+    base = normalize_event_name(gp_race_name)
+    sprint_name = f"{base} Sprint"
+    return is_event_already_synced(sprint_name)
+
+def get_recent_synced_events(limit=10):
+    """Return the most recently synced production events for display."""
+    history = load_sync_history()
+    return list(reversed(history[-limit:])) if history else []
 
 def get_team_details(name, is_constructor=False):
     """Returns color, slug, and team name for a driver/constructor."""
@@ -269,6 +349,67 @@ def get_next_session_info():
         pass
     return None
 
+def _session_display_type(session, results):
+    """
+    Classify session for display: 'qualifying' (Q/SQ times), 'race' (Time, Pts), or 'practice'.
+    Avoids relying only on session.name; checks available columns.
+    """
+    if results is None or results.empty:
+        return 'practice'
+    cols = set(results.columns)
+    session_name = (session.name or '').lower()
+    if 'Q1' in cols or 'SQ1' in cols:
+        return 'qualifying'
+    if any(x in session_name for x in ['qualifying', 'sprint qualifying', 'sprint shootout']):
+        return 'qualifying'
+    if 'Time' in cols and 'Points' in cols:
+        return 'race'
+    if any(x in session_name for x in ['race', 'sprint']) and 'Time' not in cols:
+        return 'race'
+    return 'practice'
+
+
+def _format_timedelta(td):
+    """Format pd.Timedelta for display (e.g. '1:23.456')."""
+    if td is None or pd.isna(td):
+        return ""
+    s = str(td)
+    if 'days ' in s:
+        s = s.split('days ')[-1]
+    return s[:-3] if s.endswith('ns') else s
+
+
+def _qualifying_time_cols(results):
+    """Return timing column names for qualifying display: Q1/Q2/Q3 or SQ1/SQ2/SQ3."""
+    cols = set(results.columns)
+    if 'SQ1' in cols:
+        return [c for c in ['SQ1', 'SQ2', 'SQ3'] if c in cols]
+    return [c for c in ['Q1', 'Q2', 'Q3'] if c in cols]
+
+
+def _resolve_position(row, display_index, display_type):
+    """
+    Resolve display position. Only treat as DNF for explicit non-position values.
+    For qualifying fallback, use display_index (1-based numeric counter from enumerate).
+    """
+    NON_POSITION = {'nan', 'r', 'n/c', 'ret', 'none', '', 'dq', 'ex', 'd', 'e', 'w', 'f', 'n'}
+    for col in ('Position', 'ClassifiedPosition', 'GridPosition'):
+        val = row.get(col)
+        if pd.isna(val) or val is None:
+            continue
+        pos = str(val).strip().lower()
+        if pos in NON_POSITION:
+            continue
+        if pos.replace('.', '').replace('-', '').isdigit():
+            p = str(val).strip()
+            if p.endswith('.0'):
+                p = p[:-2]
+            return p
+    if display_type == 'qualifying':
+        return str(display_index)
+    return "–"
+
+
 def get_latest_results_data():
     """Fetches and formats the latest race/qualifying results."""
     try:
@@ -314,25 +455,24 @@ def get_latest_results_data():
         results = session.results
         if results.empty: return None
         
-        # Process Data
+        display_type = _session_display_type(session, results)
         data = []
         headers = ['Pos', 'Driver', 'Team']
         
-        # Determine session type from name to avoid Q3 column confusion in Race results
-        is_quali = 'Qualifying' in session.name
-        
-        if is_quali:
-            headers.extend(['Q1', 'Q2', 'Q3'])
+        if display_type == 'qualifying':
+            time_cols = _qualifying_time_cols(results)
+            headers.extend(time_cols)
+        elif display_type == 'race':
+            headers.extend(['Time', 'Pts'])
         else:
             headers.extend(['Time', 'Pts'])
             
-        for idx, row in results.iterrows():
+        for display_index, (_, row) in enumerate(results.iterrows(), start=1):
             # Color Logic
             team_name = row['TeamName']
             color = row.get('TeamColor', '')
             if pd.isna(color) or str(color).strip() == '':
-                # Fallback colors
-                config = TEAM_CONFIG.get("Cadillac") # Default
+                config = TEAM_CONFIG.get("Cadillac")
                 for t_key, t_val in TEAM_CONFIG.items():
                     if t_key in str(team_name):
                         config = t_val
@@ -341,20 +481,16 @@ def get_latest_results_data():
             else:
                 if not str(color).startswith('#'): color = f"#{color}"
             
-            # Text Contrast
-            text_color = '#ffffff' # Default white text
+            text_color = '#ffffff'
 
-            # Position Logic
-            val = row.get('Position')
-            if pd.isna(val):
-                val = row.get('ClassifiedPosition')
-            
-            pos = str(val).strip()
-            if pos.endswith('.0'):
-                pos = pos[:-2]
-                
-            if pos.lower() in ['nan', 'r', 'n/c', 'ret', 'none', '', 'dq', 'ex']:
-                pos = "DNF"
+            # Position Logic: only DNF when explicitly a non-position value
+            pos = _resolve_position(row, display_index, display_type)
+            if pos == "–" and display_type == 'race':
+                val = str(row.get('Status', ''))
+                if val and val.lower() not in ('', 'nan'):
+                    pos = val
+                else:
+                    pos = "DNF"
             
             # Image Logic
             driver_name = row['FullName']
@@ -364,18 +500,17 @@ def get_latest_results_data():
 
             item = {'pos': pos, 'driver': driver_name, 'team': team_name, 'color': color, 'text_color': text_color, 'image': img_url, 'cols': []}
             
-            if is_quali:
-                for q in ['Q1', 'Q2', 'Q3']:
-                    val = str(row.get(q, '')).split('days ')[-1][:-3] if pd.notna(row.get(q, '')) and str(row.get(q, '')).strip() != "" else ""
-                    item['cols'].append(val)
+            if display_type == 'qualifying':
+                time_cols = _qualifying_time_cols(results)
+                for q in time_cols:
+                    val = row.get(q, '')
+                    item['cols'].append(_format_timedelta(val) if pd.notna(val) and str(val).strip() else "")
             else:
-                # Race Logic: Show Time if available, otherwise Status (for DNF/Lapped)
                 time_val = row.get('Time')
                 if pd.notna(time_val):
-                    t = str(time_val).split('days ')[-1][:-3]
+                    t = _format_timedelta(time_val)
                 else:
                     t = str(row.get('Status', ''))
-                
                 pts = str(row.get('Points', 0)).replace('.0', '')
                 item['cols'].extend([t, pts])
                 
@@ -404,8 +539,14 @@ def home():
         return render_template('index.html', title="Home", leaderboard=[], race_results=[], notice=notice_msg)
     
     # 1. Latest Race Recap Data
-    # Sort by Points (desc), then Name (asc) for consistent ordering of 0-pointers
-    race_results_df = df.sort_values(by=['Last Race Pts', 'Name'], ascending=[False, True])
+    # Sort by Last Race Pts (desc), then tie-breaks, then Name
+    _race_sort_spec = [
+        ('Last Race Pts', False), ('Driver Race Pts', False), ('Top Driver Score', False),
+        ('Constructor Race Pts', False), ('Best Finish Pos', True), ('Prior Best Finish Pos', True), ('Name', True),
+    ]
+    race_sort_cols = [c for c, _ in _race_sort_spec if c in df.columns]
+    race_sort_asc = [asc for c, asc in _race_sort_spec if c in df.columns]
+    race_results_df = df.sort_values(by=race_sort_cols, ascending=race_sort_asc)
     race_results = []
     for i, (index, row) in enumerate(race_results_df.iterrows()):
         row_dict = row.to_dict()
@@ -415,8 +556,10 @@ def home():
         race_results.append(row_dict)
 
     # 2. Main Leaderboard Data
-    # Sort by Score (desc), Winnings (desc), then Name (asc)
-    df = df.sort_values(by=['Current Score', 'Total Winnings', 'Name'], ascending=[False, False, True])
+    # Sort by official tie-break order (see scoring.LEADERBOARD_SORT_BY)
+    sort_cols = [c for c in LEADERBOARD_SORT_BY if c in df.columns]
+    sort_asc = [LEADERBOARD_SORT_ASCENDING[i] for i, c in enumerate(LEADERBOARD_SORT_BY) if c in df.columns]
+    df = df.sort_values(by=sort_cols, ascending=sort_asc)
     
     leaderboard_data = []
     for i, (index, row) in enumerate(df.iterrows()):
@@ -739,12 +882,11 @@ def admin():
         return redirect(url_for('home'))
 
     races = [
-        "Australia", "China", "China Sprint", "Japan", "Bahrain", "Saudi Arabia", 
-        "Miami", "Miami Sprint", "Emilia Romagna", "Monaco", "Barcelona-Catalunya", "Spain", 
-        "Canada", "Austria", "Austria Sprint", "Great Britain", "Belgium", 
-        "Hungary", "Netherlands", "Italy", "Azerbaijan", "Singapore", 
-        "United States", "United States Sprint", "Mexico City", "Brazil", "Brazil Sprint", 
-        "Las Vegas", "Qatar", "Qatar Sprint", "Abu Dhabi"
+        "Australia", "China", "China Sprint", "Japan", "Bahrain", "Saudi Arabia",
+        "Miami", "Miami Sprint", "Emilia Romagna", "Monaco", "Barcelona-Catalunya", "Spain",
+        "Canada", "Canada Sprint", "Austria", "Great Britain", "Great Britain Sprint", "Belgium",
+        "Hungary", "Netherlands", "Netherlands Sprint", "Italy", "Azerbaijan", "Singapore", "Singapore Sprint",
+        "United States", "Mexico City", "Brazil", "Las Vegas", "Qatar", "Abu Dhabi"
     ]
     
     # Read current notice for editing
@@ -761,8 +903,23 @@ def admin():
     if os.path.exists(DATA_FILE):
         timestamp = os.path.getmtime(DATA_FILE)
         last_update = datetime.datetime.fromtimestamp(timestamp).strftime('%d %b %Y, %H:%M:%S')
+
+    # Build test leaderboard (sorted, with positions)
+    test_df = get_test_league_data()
+    if not test_df.empty:
+        sort_cols = [c for c in LEADERBOARD_SORT_BY if c in test_df.columns]
+        sort_asc = [LEADERBOARD_SORT_ASCENDING[i] for i, c in enumerate(LEADERBOARD_SORT_BY) if c in test_df.columns]
+        test_df = test_df.sort_values(by=sort_cols, ascending=sort_asc)
+        test_df = test_df.copy()
+        test_df['Pos'] = test_df['Current Score'].rank(ascending=False, method='min').fillna(0).astype(int)
+        display_cols = [c for c in ['Pos', 'Name', 'Nickname', 'Current Score', 'Last Race Pts', 'Total Winnings', 'Total Spent'] if c in test_df.columns]
+        test_leaderboard = test_df[display_cols].to_dict('records')
+    else:
+        test_leaderboard = []
+
+    recent_synced = get_recent_synced_events(10)
             
-    return render_template('admin.html', title="Admin", races=races, notice=current_notice, google_sync_status=google_sync_status, last_update=last_update)
+    return render_template('admin.html', title="Admin", races=races, notice=current_notice, google_sync_status=google_sync_status, last_update=last_update, test_leaderboard=test_leaderboard, recent_synced=recent_synced)
 
 @app.route('/admin/notice', methods=['POST'])
 def admin_notice():
@@ -826,10 +983,14 @@ def admin_reset_scores():
         
     df = get_league_data()
     if not df.empty:
-        # Reset scoring columns to 0, keep Name/Picks/Email/Password
-        cols = ['Current Score', 'Total Winnings', 'Pos', 'Previous Pos', 'Last Race Pts', 'Total Spent']
-        for c in cols:
-            df[c] = 0
+        # Reset scoring columns to 0 (999 for Best Finish cols), keep Name/Picks/Email/Password
+        for c in ['Current Score', 'Total Winnings', 'Pos', 'Previous Pos', 'Last Race Pts', 'Total Spent',
+                  'Driver Race Pts', 'Constructor Race Pts', 'Top Driver Score']:
+            if c in df.columns:
+                df[c] = 0
+        for c in ['Best Finish Pos', 'Prior Best Finish Pos']:
+            if c in df.columns:
+                df[c] = 999
         save_league_data(df)
         flash("✅ Season scores and stats have been reset to 0. Teams are preserved.", "success")
     
@@ -841,8 +1002,9 @@ def admin_reset():
         return redirect(url_for('home'))
         
     # Reset with specific columns matching the schema
-    cols = ['Name', 'Nickname', 'Email', 'Password', 'Picks', 'Current Score', 
-            'Total Winnings', 'Pos', 'Previous Pos', 'Last Race Pts', 'Total Spent']
+    cols = ['Name', 'Nickname', 'Email', 'Password', 'Picks', 'Current Score',
+            'Total Winnings', 'Pos', 'Previous Pos', 'Last Race Pts', 'Total Spent',
+            'Driver Race Pts', 'Constructor Race Pts', 'Top Driver Score', 'Best Finish Pos', 'Prior Best Finish Pos']
     df = pd.DataFrame(columns=cols)
     save_league_data(df)
     flash("⚠️ League data has been completely wiped.", "warning")
@@ -855,10 +1017,25 @@ def admin_sync():
         return redirect(url_for('home'))
         
     action = request.form.get('action')
-    df = get_league_data()
     
     if action == 'sync':
-        race_name = request.form.get('race_name')
+        race_name = (request.form.get('race_name') or "").strip()
+        if not race_name:
+            flash("PRODUCTION MODE: No race selected.", "danger")
+            return redirect(url_for('admin'))
+
+        # 1. Duplicate sync protection
+        if is_event_already_synced(race_name):
+            flash(f"PRODUCTION MODE: {race_name} has already been synced. Duplicate sync blocked.", "warning")
+            return redirect(url_for('admin'))
+
+        # 2. Sprint-before-GP validation (GP on Sprint weekend must have Sprint synced first)
+        if is_gp_on_sprint_weekend(race_name) and not sprint_already_synced_for_gp(race_name):
+            base = normalize_event_name(race_name)
+            flash(f"PRODUCTION MODE: {base} Grand Prix cannot be synced before {base} Sprint has been synced.", "warning")
+            return redirect(url_for('admin'))
+
+        df = get_league_data()
         try:
             p1 = float(request.form.get('p1', 0))
             p2 = float(request.form.get('p2', 0))
@@ -874,28 +1051,97 @@ def admin_sync():
         if "Successfully" in msg:
             save_status = save_league_data(updated_df)
             if save_status is True:
-                flash(msg, "success")
+                flash(f"PRODUCTION MODE: {msg} Data synced to CSV and Google Sheet.", "success")
             elif save_status == 'skipped':
-                flash(f"{msg} (Local save only. Google Sheet sync is inactive.)", "warning")
+                flash(f"PRODUCTION MODE: {msg} (Local save only. Google Sheet sync is inactive.)", "warning")
             else:
-                flash(f"{msg} (Local save OK, but Google Sheet sync failed.)", "danger")
+                flash(f"PRODUCTION MODE: {msg} Google Sheet sync failed.", "danger")
+            session_type = "Sprint" if is_sprint_event(race_name) else "GP"
+            add_sync_to_history(race_name, session_type)
         else:
             flash(msg, "danger")
-            
+
+    elif action == 'force_sync':
+        race_name = (request.form.get('race_name') or "").strip()
+        if not race_name:
+            flash("PRODUCTION MODE: No race selected.", "danger")
+            return redirect(url_for('admin'))
+
+        # Bypass duplicate check; still enforce Sprint-before-GP
+        if is_gp_on_sprint_weekend(race_name) and not sprint_already_synced_for_gp(race_name):
+            base = normalize_event_name(race_name)
+            flash(f"PRODUCTION MODE: {base} Grand Prix cannot be resynced before {base} Sprint has been synced.", "warning")
+            return redirect(url_for('admin'))
+
+        try:
+            p1 = float(request.form.get('p1', 0))
+            p2 = float(request.form.get('p2', 0))
+            p3 = float(request.form.get('p3', 0))
+            p_rest = float(request.form.get('p_rest', 0))
+            force_payouts = [p1, p2, p3] + [p_rest] * 12
+        except ValueError:
+            flash("Invalid payout values.", "danger")
+            return redirect(url_for('admin'))
+
+        default_payouts = [20, 15, 10] + [5] * 12
+        year = datetime.datetime.now().year
+
+        # Rebuild season from history to correctly overwrite (no double-count)
+        df = get_league_data()
+        for c in ['Current Score', 'Total Winnings', 'Previous Pos', 'Last Race Pts', 'Total Spent',
+                  'Driver Race Pts', 'Constructor Race Pts', 'Top Driver Score']:
+            if c in df.columns:
+                df[c] = 0
+        for c in ['Best Finish Pos', 'Prior Best Finish Pos']:
+            if c in df.columns:
+                df[c] = 999
+
+        history = load_sync_history()
+        last_msg = ""
+        for entry in history:
+            evt = (entry.get("event_name") or "").strip()
+            payouts = force_payouts if evt == race_name else default_payouts
+            df, msg = scoring.calculate_race_scores(df, year, evt, payouts)
+            if "Successfully" not in msg:
+                flash(f"PRODUCTION MODE: Force resync failed during rebuild: {msg}", "danger")
+                return redirect(url_for('admin'))
+            if evt == race_name:
+                last_msg = msg
+
+        save_status = save_league_data(df)
+        if save_status is True:
+            flash(f"PRODUCTION MODE: Force resync complete. {last_msg} Data synced to CSV and Google Sheet.", "success")
+        elif save_status == 'skipped':
+            flash(f"PRODUCTION MODE: Force resync complete. {last_msg} (Local save only. Google Sheet sync is inactive.)", "warning")
+        else:
+            flash(f"PRODUCTION MODE: Force resync complete. {last_msg} Google Sheet sync failed.", "danger")
+        session_type = "Sprint" if is_sprint_event(race_name) else "GP"
+        update_sync_in_history(race_name, session_type)
+
     elif action == 'test':
+        df = get_test_league_data()
         test_payouts = [20, 15, 10] + [5] * 9
         updated_df, msg = scoring.calculate_race_scores(df, datetime.datetime.now().year, "Test Race", test_payouts, is_test=True)
         if "Successfully" in msg:
-            save_status = save_league_data(updated_df)
-            if save_status is True:
-                flash("Test race simulation successful! Data updated and synced.", "success")
-            elif save_status == 'skipped':
-                flash("Test race simulation successful! (Local save only. Google Sheet sync is inactive.)", "warning")
-            else:
-                flash("Test successful, but Google Sheet sync failed.", "danger")
+            save_test_league_data(updated_df)
+            flash(f"TEST MODE: {msg} Test leaderboard updated (production untouched).", "success")
         else:
             flash(msg, "danger")
-            
+
+    elif action == 'test_sprint':
+        df = get_test_league_data()
+        test_payouts = [20, 15, 10] + [5] * 9
+        updated_df, msg = scoring.calculate_race_scores(df, datetime.datetime.now().year, "Test Sprint", test_payouts, is_test='sprint')
+        if "Successfully" in msg:
+            save_test_league_data(updated_df)
+            flash(f"TEST MODE: {msg} Test leaderboard updated (production untouched).", "success")
+        else:
+            flash(msg, "danger")
+
+    elif action == 'reset_test_data':
+        reset_test_league_data()
+        flash("TEST MODE: Test leaderboard reset from current production data. Production untouched.", "success")
+
     return redirect(url_for('admin'))
 
 if __name__ == "__main__":

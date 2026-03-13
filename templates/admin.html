@@ -40,12 +40,12 @@
         <div class="card h-100">
             <div class="card-header bg-danger text-white fw-bold">🏁 Race Operations</div>
             <div class="card-body">
-                <form action="{{ url_for('admin_sync') }}" method="post">
-                    <input type="hidden" name="action" value="sync">
+                <form id="sync-form" action="{{ url_for('admin_sync') }}" method="post" onsubmit="return confirmSyncAction(this);">
+                    <input type="hidden" name="action" id="sync_action_input" value="sync">
                     
                     <div class="mb-3">
                         <label class="form-label">Select Race to Sync</label>
-                        <select class="form-select" name="race_name">
+                        <select class="form-select" name="race_name" id="race_name_select">
                             {% for race in races %}
                             <option value="{{ race }}">{{ race }}</option>
                             {% endfor %}
@@ -68,8 +68,51 @@
                         </div>
                     </div>
 
-                    <button type="submit" class="btn btn-primary w-100">🔄 Sync Race & Update Standings</button>
+                    <button type="submit" class="btn btn-primary w-100 mb-2" onclick="document.getElementById('sync_action_input').value='sync';">🔄 Sync Race & Update Standings</button>
+                    <button type="submit" class="btn btn-outline-danger w-100" onclick="document.getElementById('sync_action_input').value='force_sync';">⚠️ Force Resync Race</button>
                 </form>
+                <script>
+                function confirmSyncAction(form) {
+                    var sel = document.getElementById('race_name_select');
+                    var race = sel ? sel.options[sel.selectedIndex].value : '';
+                    var action = document.getElementById('sync_action_input').value;
+                    if (action === 'force_sync') {
+                        return confirm('WARNING: Force resync will overwrite the previous results for ' + race + '. Continue?');
+                    }
+                    return confirm('Are you sure you want to sync ' + race + ' to PRODUCTION standings?');
+                }
+                </script>
+            </div>
+        </div>
+
+        <!-- Recently Synced Production Races -->
+        <div class="card mt-4">
+            <div class="card-header bg-secondary text-white fw-bold">📋 Recently Synced Production Races</div>
+            <div class="card-body p-0">
+                {% if recent_synced %}
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Event</th>
+                                <th>Type</th>
+                                <th>Synced</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for e in recent_synced %}
+                            <tr>
+                                <td>{{ e.event_name }}</td>
+                                <td>{{ e.session_type }}</td>
+                                <td class="text-muted small">{{ e.timestamp[:19] if e.timestamp else '-' }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted small p-3 mb-0">No production races synced yet.</p>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -79,11 +122,56 @@
         <div class="card border-warning">
             <div class="card-header bg-warning text-dark fw-bold">🧪 System Testing</div>
             <div class="card-body">
-                <p>Run a simulation using a random race from last season to test the scoring engine.</p>
-                <form action="{{ url_for('admin_sync') }}" method="post">
+                <p class="small text-muted mb-2">Run simulations on <strong>test data only</strong>. Production leaderboard and Google Sheet are never modified.</p>
+                <form action="{{ url_for('admin_sync') }}" method="post" class="mb-2">
                     <input type="hidden" name="action" value="test">
-                    <button type="submit" class="btn btn-warning w-100">🚀 Run Stress Test</button>
+                    <button type="submit" class="btn btn-warning w-100 mb-2">🏁 Run GP Test</button>
                 </form>
+                <form action="{{ url_for('admin_sync') }}" method="post" class="mb-2">
+                    <input type="hidden" name="action" value="test_sprint">
+                    <button type="submit" class="btn btn-outline-warning w-100 mb-2">⚡ Run Sprint Test</button>
+                </form>
+                <form action="{{ url_for('admin_sync') }}" method="post" onsubmit="return confirm('Reset test leaderboard from current production data?');">
+                    <input type="hidden" name="action" value="reset_test_data">
+                    <button type="submit" class="btn btn-outline-secondary w-100">🔄 Reset Test Leaderboard</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Test Leaderboard -->
+        <div class="card mt-4 border-warning">
+            <div class="card-header bg-warning text-dark fw-bold">📊 Test Leaderboard</div>
+            <div class="card-body p-0">
+                {% if test_leaderboard %}
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Name</th>
+                                <th>Score</th>
+                                <th>Last Race</th>
+                                <th>Winnings</th>
+                                <th>Spent</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in test_leaderboard %}
+                            <tr>
+                                <td>{{ row.Pos }}</td>
+                                <td>{{ row.Nickname or row.Name or '-' }}</td>
+                                <td>{{ row['Current Score'] }}</td>
+                                <td>{{ row['Last Race Pts'] }}</td>
+                                <td>{{ row['Total Winnings'] }}</td>
+                                <td>{{ row['Total Spent'] }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted small p-3 mb-0">No test data. Run a test or reset from production.</p>
+                {% endif %}
             </div>
         </div>
 
