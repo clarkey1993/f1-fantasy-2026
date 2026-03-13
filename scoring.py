@@ -34,6 +34,14 @@ LEADERBOARD_SORT_BY = [
 ]
 LEADERBOARD_SORT_ASCENDING = [False, False, False, False, False, True, True, True]
 
+# --- TEMPORARY DEBUG TRACE (remove when done) ---
+TRACE_DEBUG_EVENT = "Australia"
+TRACE_DEBUG_PICKS = (
+    'George Russell', 'Max Verstappen', 'Kimi Antonelli', 'Lewis Hamilton', 'Isack Hadjar',
+    'Alex Albon', 'Liam Lawson', 'Arvid Lindblad', 'Franco Colapinto', 'Sergio Perez',
+    'Ferrari', 'Mercedes', 'Red Bull', 'Alpine', 'Haas', 'Racing Bulls'
+)
+
 
 def _clean_race_name(race_name):
     """Trim leading/trailing spaces and collapse repeated internal spaces to a single space."""
@@ -80,7 +88,7 @@ def safe_int(val, default=0):
 def _finished(status):
     """
     True if driver crossed the finish line (classified finisher).
-    Accepts: 'Finished', '+1 Lap', '+2 Laps', '+X Lap(s)', 'Finished (+1 Lap)', etc.
+    Accepts: 'Finished', 'Lapped', '+1 Lap', '+2 Laps', '1 Lap', '2 Laps', etc.
     Excludes: DNFs, retirements, disqualified, excluded (handled elsewhere).
     """
     if status is None or (isinstance(status, float) and pd.isna(status)):
@@ -94,8 +102,14 @@ def _finished(status):
     # Finished (exact or with suffix like "Finished (+1 Lap)")
     if 'finished' in s:
         return True
-    # +X Lap / +X Laps / + X Lap(s) - any laps behind format
+    # Lapped: classified finisher who completed the race but was lapped
+    if 'lapped' in s:
+        return True
+    # +X Lap / +X Laps / + X Lap(s) - laps behind format
     if re.search(r'\+\s*\d+\s*laps?', s):
+        return True
+    # X Lap / X Laps (without +) - lapped finisher variants
+    if re.search(r'\b\d+\s*laps?\b', s):
         return True
     # Legacy: status starts with + (catches other variations)
     if s.startswith('+'):
@@ -189,12 +203,13 @@ def build_fantasy_grid(results):
     return fantasy, dns_abbrs
 
 
-def score_driver(d, fantasy_grid, dns_abbrs, fastest_lap_abbr, max_laps, session, abbr):
-    """
-    Score a single driver. Returns (points, race_only_points, classified_position or None).
-    """
+def _score_driver_core(d, fantasy_grid, dns_abbrs, fastest_lap_abbr, max_laps, session, abbr):
+    """Internal: compute driver score. Returns (pts, race_pts, finish, breakdown_dict)."""
+    b = dict(grid_pts=0, laps=0, lap_pts=0, status="", finish_pos=None, gain_pts=0, finish_pts=0, fastest_lap_pts=0, deductions=0, total=0)
+
     if abbr in dns_abbrs:
-        return 0, 0, None
+        b["status"] = "DNS"
+        return 0, 0, None, b
 
     status = str(d.get('Status', ''))
     laps = safe_int(d.get('Laps'), 0)
@@ -215,38 +230,100 @@ def score_driver(d, fantasy_grid, dns_abbrs, fastest_lap_abbr, max_laps, session
     pts = 0
     race_pts = 0
 
-    # Grid points: 20 for P1 down to 1 for P20
     grid_pts = max(0, 21 - grid_pos)
     pts += grid_pts
     race_pts += grid_pts
+    b["grid_pts"] = grid_pts
+    b["fantasy_grid_pos"] = grid_pos
+    b["laps"] = laps
+    b["lap_pts"] = laps
+    b["status"] = status
+    pts += laps
+    race_pts += laps
 
     if _disqualified(status):
         pts -= 20
         race_pts -= 20
-        return pts, race_pts, None
-
-    # Laps
-    pts += laps
-    race_pts += laps
+        b["deductions"] = 20
+        b["total"] = pts
+        return pts, race_pts, None, b
 
     if not _finished(status):
-        return pts, race_pts, None
+        b["total"] = pts
+        return pts, race_pts, None, b
 
     finish = safe_int(d.get('ClassifiedPosition'), 999)
-    # Position gain: only if positive
+    b["finish_pos"] = finish
     gain = grid_pos - finish
     if gain > 0:
         pts += gain
         race_pts += gain
+        b["gain_pts"] = gain
 
-    pts += FINISH_POINTS.get(finish, 0)
-    race_pts += FINISH_POINTS.get(finish, 0)
+    finish_pts = FINISH_POINTS.get(finish, 0)
+    pts += finish_pts
+    race_pts += finish_pts
+    b["finish_pts"] = finish_pts
 
     if abbr == fastest_lap_abbr:
         pts += 25
         race_pts += 25
+        b["fastest_lap_pts"] = 25
 
+    b["total"] = pts
+    return pts, race_pts, finish, b
+
+
+def score_driver(d, fantasy_grid, dns_abbrs, fastest_lap_abbr, max_laps, session, abbr):
+    """
+    Score a single driver. Returns (points, race_only_points, classified_position or None).
+    """
+    pts, race_pts, finish, _ = _score_driver_core(d, fantasy_grid, dns_abbrs, fastest_lap_abbr, max_laps, session, abbr)
     return pts, race_pts, finish
+
+
+def _score_constructor_core(pick, results, session):
+    """Internal: compute constructor score. Returns (pts, breakdown_dict)."""
+    b = dict(matched_drivers=[], driver_statuses=[], finishers=[], finisher_bonus=0, best_pos=None, finish_pts=0, deductions=0, total=0)
+
+    official_team = app_constructor_to_fastf1(pick)
+    t_data = results[results['TeamName'] == official_team]
+    if t_data.empty:
+        t_data = results[results['TeamName'].str.contains(official_team, case=False, na=False)]
+
+    abbrs = t_data['Abbreviation'].tolist() if not t_data.empty and 'Abbreviation' in t_data.columns else []
+    b["official_team"] = official_team
+    b["matched_drivers"] = abbrs
+
+    if t_data.empty:
+        return 0, b
+
+    pts = 0
+    for _, car in t_data.iterrows():
+        st = str(car.get('Status', ''))
+        abbr = car.get('Abbreviation', '?')
+        b["driver_statuses"].append(f"{abbr}={st}")
+        if _finished(st):
+            b["finishers"].append(abbr)
+
+    dq_cars = t_data[t_data['Status'].str.contains('Disqualified|Excluded', na=False, case=False)]
+    dq_count = len(dq_cars)
+    pts -= dq_count * 10
+    b["deductions"] = dq_count * 10
+
+    finishers = [r for _, r in t_data.iterrows() if _finished(str(r.get('Status', '')))]
+    pts += len(finishers) * 10
+    b["finisher_bonus"] = len(finishers) * 10
+
+    if finishers:
+        best_pos = min(safe_int(c.get('ClassifiedPosition'), 999) for c in finishers)
+        b["best_pos"] = best_pos
+        fp = FINISH_POINTS.get(best_pos, 0)
+        pts += fp
+        b["finish_pts"] = fp
+
+    b["total"] = pts
+    return pts, b
 
 
 def score_constructor(pick, results, session):
@@ -254,44 +331,12 @@ def score_constructor(pick, results, session):
     Score a single constructor. Returns (points,).
     10 per finishing car, best car's finish points, -10 per DSQ car.
     """
-    official_team = app_constructor_to_fastf1(pick)
-    t_data = results[results['TeamName'] == official_team]
-    match_method = "exact"
-    if t_data.empty:
-        # Fallback: fuzzy match (e.g. "Kick Sauber" in config vs "Kick Sauber F1 Team" in results)
-        t_data = results[results['TeamName'].str.contains(official_team, case=False, na=False)]
-        match_method = "contains"
-
-    abbrs = t_data['Abbreviation'].tolist() if not t_data.empty and 'Abbreviation' in t_data.columns else []
-    logging.debug("[scoring] Constructor pick=%s -> FastF1=%s | rows=%d | match=%s | drivers=%s",
-                  pick, official_team, len(t_data), match_method, abbrs)
-
-    if t_data.empty:
-        logging.warning("[scoring] Constructor %s (%s): 0 rows matched in results", pick, official_team)
-        return 0
-
-    pts = 0
-
-    dq_cars = t_data[t_data['Status'].str.contains('Disqualified|Excluded', na=False, case=False)]
-    pts -= len(dq_cars) * 10
-
-    finishers = []
-    for _, car in t_data.iterrows():
-        if _finished(car['Status']):
-            finishers.append(car)
-
-    # Debug safeguard: team in results but no finishers detected
-    if len(finishers) == 0 and len(t_data) > 0:
-        statuses = [str(c.get('Status', '')) for _, c in t_data.iterrows()]
+    pts, b = _score_constructor_core(pick, results, session)
+    if not b.get("matched_drivers"):
+        logging.warning("[scoring] Constructor %s (%s): 0 rows matched in results", pick, b.get("official_team", "?"))
+    elif len(b.get("finishers", [])) == 0 and len(b["matched_drivers"]) > 0:
         logging.warning("[scoring] Constructor %s (%s): 0 finishers but %d car(s) in results. Statuses: %s",
-                       pick, official_team, len(t_data), statuses)
-
-    pts += len(finishers) * 10
-
-    if finishers:
-        best_pos = min(safe_int(c.get('ClassifiedPosition'), 999) for c in finishers)
-        pts += FINISH_POINTS.get(best_pos, 0)
-
+                       pick, b.get("official_team", "?"), len(b["matched_drivers"]), b.get("driver_statuses", []))
     return pts
 
 
@@ -419,23 +464,45 @@ def calculate_race_scores(df, year, round_name, race_payouts=None, is_test=False
             drivers = picks[:10]
             constructors = picks[10:]
 
+            # Temporary debug trace: trigger for specific picks + Australia
+            do_trace = (not is_test and round_name == TRACE_DEBUG_EVENT and
+                        tuple(picks) == TRACE_DEBUG_PICKS)
+
             total = 0
             driver_race_total = 0
             constructor_race_total = 0
             top_driver = 0
             best_finish = 999
 
+            if do_trace:
+                logging.warning("[SCORING TRACE] === DRIVER BREAKDOWN ===")
+
             for pick in drivers:
                 if pick not in DRIVER_MAP:
+                    if do_trace:
+                        logging.warning("[SCORING TRACE] DRIVER %s | NOT IN DRIVER_MAP | skip", pick)
                     continue
                 abbr = DRIVER_MAP[pick]
                 d_data = results[results['Abbreviation'] == abbr]
                 if d_data.empty:
+                    if do_trace:
+                        logging.warning("[SCORING TRACE] DRIVER %s | abbr=%s | NO ROW IN RESULTS | skip", pick, abbr)
                     continue
                 d = d_data.iloc[0]
-                pts, race_pts, finish_pos = score_driver(
-                    d, fantasy_grid, dns_abbrs, fastest_lap_abbr, max_laps, session, abbr
-                )
+                if do_trace:
+                    pts, race_pts, finish_pos, b = _score_driver_core(
+                        d, fantasy_grid, dns_abbrs, fastest_lap_abbr, max_laps, session, abbr
+                    )
+                    logging.warning(
+                        "[SCORING TRACE] DRIVER %s | abbr=%s | grid_pos=%s | grid_pts=%s | laps=%s | lap_pts=%s | status=%s | finish_pos=%s | gain_pts=%s | finish_pts=%s | fastest_lap_pts=%s | deductions=%s | total=%s",
+                        pick, abbr, b.get("fantasy_grid_pos"), b.get("grid_pts"), b.get("laps"), b.get("lap_pts"),
+                        repr(str(b.get("status", ""))[:40]), b.get("finish_pos"), b.get("gain_pts"),
+                        b.get("finish_pts"), b.get("fastest_lap_pts"), b.get("deductions"), b.get("total")
+                    )
+                else:
+                    pts, race_pts, finish_pos = score_driver(
+                        d, fantasy_grid, dns_abbrs, fastest_lap_abbr, max_laps, session, abbr
+                    )
                 total += pts
                 driver_race_total += race_pts
                 if race_pts > top_driver:
@@ -443,10 +510,28 @@ def calculate_race_scores(df, year, round_name, race_payouts=None, is_test=False
                 if finish_pos is not None and finish_pos < best_finish:
                     best_finish = finish_pos
 
+            if do_trace:
+                logging.warning("[SCORING TRACE] === CONSTRUCTOR BREAKDOWN ===")
+
             for pick in constructors:
-                c_pts = score_constructor(pick, results, session)
+                if do_trace:
+                    c_pts, c_b = _score_constructor_core(pick, results, session)
+                    logging.warning(
+                        "[SCORING TRACE] CONSTRUCTOR %s | FastF1=%s | matched=%s | statuses=%s | finishers=%s | finisher_bonus=%s | best_pos=%s | finish_pts=%s | deductions=%s | total=%s",
+                        pick, c_b.get("official_team"), c_b.get("matched_drivers"), c_b.get("driver_statuses"),
+                        c_b.get("finishers"), c_b.get("finisher_bonus"), c_b.get("best_pos"),
+                        c_b.get("finish_pts"), c_b.get("deductions"), c_b.get("total")
+                    )
+                else:
+                    c_pts = score_constructor(pick, results, session)
                 total += c_pts
                 constructor_race_total += c_pts
+
+            if do_trace:
+                logging.warning(
+                    "[SCORING TRACE] === TOTALS | driver_race_pts=%s | constructor_race_pts=%s | grand_total=%s ===",
+                    driver_race_total, constructor_race_total, total
+                )
 
             race_totals.append(total)
             driver_race_pts_list.append(driver_race_total)
