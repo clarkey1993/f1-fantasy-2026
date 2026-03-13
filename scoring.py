@@ -7,6 +7,8 @@ import pandas as pd
 import os
 import ast
 import random
+import re
+import logging
 
 from f1_config import DRIVER_MAP, CONSTRUCTOR_MAP, app_constructor_to_fastf1
 
@@ -76,9 +78,29 @@ def safe_int(val, default=0):
 
 
 def _finished(status):
-    """True if driver crossed the finish line."""
-    s = str(status).lower()
-    return s == 'finished' or s.startswith('+')
+    """
+    True if driver crossed the finish line (classified finisher).
+    Accepts: 'Finished', '+1 Lap', '+2 Laps', '+X Lap(s)', 'Finished (+1 Lap)', etc.
+    Excludes: DNFs, retirements, disqualified, excluded (handled elsewhere).
+    """
+    if status is None or (isinstance(status, float) and pd.isna(status)):
+        return False
+    s = str(status).strip().lower()
+    if not s:
+        return False
+    # Explicit exclusions (DNF/DSQ - do not treat as finisher)
+    if any(x in s for x in ('disqualified', 'excluded', 'black flag', 'retired', 'accident', 'crash', 'collision', 'engine', 'gearbox', 'spun off', 'suspension', 'brakes', 'electrical', 'hydraulics', 'did not start', 'withdrawn')):
+        return False
+    # Finished (exact or with suffix like "Finished (+1 Lap)")
+    if 'finished' in s:
+        return True
+    # +X Lap / +X Laps / + X Lap(s) - any laps behind format
+    if re.search(r'\+\s*\d+\s*laps?', s):
+        return True
+    # Legacy: status starts with + (catches other variations)
+    if s.startswith('+'):
+        return True
+    return False
 
 
 def _did_not_start(status, laps):
@@ -249,6 +271,12 @@ def score_constructor(pick, results, session):
     for _, car in t_data.iterrows():
         if _finished(car['Status']):
             finishers.append(car)
+
+    # Debug safeguard: team in results but no finishers detected
+    if len(finishers) == 0 and len(t_data) > 0:
+        statuses = [str(c.get('Status', '')) for _, c in t_data.iterrows()]
+        logging.warning("[scoring] Constructor %s (%s): 0 finishers but %d car(s) in results. Statuses: %s",
+                       pick, official_team, len(t_data), statuses)
 
     pts += len(finishers) * 10
 
