@@ -256,10 +256,18 @@ def score_constructor(pick, results, session):
     """
     official_team = app_constructor_to_fastf1(pick)
     t_data = results[results['TeamName'] == official_team]
+    match_method = "exact"
     if t_data.empty:
         # Fallback: fuzzy match (e.g. "Kick Sauber" in config vs "Kick Sauber F1 Team" in results)
         t_data = results[results['TeamName'].str.contains(official_team, case=False, na=False)]
+        match_method = "contains"
+
+    abbrs = t_data['Abbreviation'].tolist() if not t_data.empty and 'Abbreviation' in t_data.columns else []
+    logging.debug("[scoring] Constructor pick=%s -> FastF1=%s | rows=%d | match=%s | drivers=%s",
+                  pick, official_team, len(t_data), match_method, abbrs)
+
     if t_data.empty:
+        logging.warning("[scoring] Constructor %s (%s): 0 rows matched in results", pick, official_team)
         return 0
 
     pts = 0
@@ -355,6 +363,11 @@ def calculate_race_scores(df, year, round_name, race_payouts=None, is_test=False
             pass
 
         fantasy_grid, dns_abbrs = build_fantasy_grid(results)
+
+        # Debug: log actual FastF1 TeamNames (once per scoring run)
+        if 'TeamName' in results.columns:
+            unique_teams = sorted(results['TeamName'].dropna().unique().tolist())
+            logging.info("[scoring] FastF1 TeamNames in results: %s", unique_teams)
 
         if df.empty:
             return df, "No players found in the league data."

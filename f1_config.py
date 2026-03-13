@@ -29,9 +29,10 @@ DRIVER_TEAM_MAP = {
 }
 
 # App constructor names -> FastF1 TeamName (used in session.results)
+# Values must match FastF1 session.results['TeamName'] exactly (Australia 2025: Alpine, Aston Martin, Ferrari, Haas F1 Team, Kick Sauber, McLaren, Mercedes, Racing Bulls, Red Bull Racing, Williams)
 CONSTRUCTOR_MAP = {
     "Red Bull": "Red Bull Racing",
-    "Racing Bulls": "RB",
+    "Racing Bulls": "Racing Bulls",  # FastF1 2025 uses "Racing Bulls" (was "RB" for AlphaTauri)
     "Haas": "Haas F1 Team",
     "Audi": "Kick Sauber",
     "Cadillac": "Williams",   # Placeholder for 2024 data; 2026 may use "Cadillac"
