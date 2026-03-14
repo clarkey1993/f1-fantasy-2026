@@ -356,6 +356,54 @@ def append_event_snapshot_to_history(history_list, event_name, session_type, df)
     """Append one event snapshot to a history list. Used when rebuilding during force_sync."""
     history_list.append(_build_event_snapshot(event_name, session_type, df))
 
+def _format_history_entry(entry):
+    """Convert raw history entry to display dict with title, results, etc."""
+    evt = entry.get("event_name", "")
+    sess = entry.get("session_type", "GP")
+    base = normalize_event_name(evt)
+    if sess == "Sprint":
+        title = f"{base} Sprint Results"
+    else:
+        title = f"{base} Grand Prix Results"
+    return {
+        "title": title,
+        "event_name": evt,
+        "session_type": sess,
+        "normalized": base,
+        "timestamp": entry.get("timestamp", ""),
+        "results": entry.get("results", []),
+    }
+
+def get_current_weekend_events():
+    """
+    Return 0, 1, or 2 event display dicts for the homepage (current weekend only).
+    - Normal GP weekend: one GP result table
+    - Sprint weekend (both synced): Sprint first, GP second
+    - Only one event synced: that one
+    """
+    raw = load_season_results_history()
+    if not raw:
+        return []
+    newest_first = list(reversed(raw))
+    latest = newest_first[0]
+    fmt_latest = _format_history_entry(latest)
+    # Check if latest and second form a Sprint weekend pair (same base, one Sprint + one GP)
+    if len(newest_first) >= 2:
+        second = newest_first[1]
+        n1, s1 = latest.get("normalized", ""), latest.get("session_type", "GP")
+        n2, s2 = second.get("normalized", ""), second.get("session_type", "GP")
+        if n1 == n2 and {s1, s2} == {"Sprint", "GP"}:
+            fmt_second = _format_history_entry(second)
+            sprint_evt = fmt_latest if fmt_latest["session_type"] == "Sprint" else fmt_second
+            gp_evt = fmt_latest if fmt_latest["session_type"] == "GP" else fmt_second
+            return [sprint_evt, gp_evt]
+    return [fmt_latest]
+
+def get_full_season_history():
+    """Return full season history formatted for display, newest first."""
+    raw = load_season_results_history()
+    return [_format_history_entry(e) for e in reversed(raw)]
+
 def get_team_details(name, is_constructor=False):
     """Returns color, slug, and team name for a driver/constructor."""
     if is_constructor:
@@ -603,26 +651,10 @@ def home():
             
     if df.empty:
         flash("Could not load league data.", "danger")
-        return render_template('index.html', title="Home", leaderboard=[], season_history=[], notice=notice_msg)
+        return render_template('index.html', title="Home", leaderboard=[], current_weekend_events=[], notice=notice_msg)
 
-    # 1. Season Results History (event-by-event, newest first)
-    raw_history = load_season_results_history()
-    season_history = []
-    for entry in reversed(raw_history):
-        evt = entry.get("event_name", "")
-        sess = entry.get("session_type", "GP")
-        base = normalize_event_name(evt)
-        if sess == "Sprint":
-            title = f"{base} Sprint Results"
-        else:
-            title = f"{base} Grand Prix Results"
-        season_history.append({
-            "title": title,
-            "event_name": evt,
-            "session_type": sess,
-            "timestamp": entry.get("timestamp", ""),
-            "results": entry.get("results", []),
-        })
+    # 1. Current weekend event(s) for homepage (0, 1, or 2 tables)
+    current_weekend_events = get_current_weekend_events()
 
     # 2. Main Leaderboard Data
     # Sort by official tie-break order (see scoring.LEADERBOARD_SORT_BY)
@@ -638,7 +670,13 @@ def home():
         row_dict['DisplayPos'] = f"({prev}) {i + 1}"
         leaderboard_data.append(row_dict)
 
-    return render_template('index.html', title="Leaderboard", leaderboard=leaderboard_data, season_history=season_history, notice=notice_msg)
+    return render_template('index.html', title="Leaderboard", leaderboard=leaderboard_data, current_weekend_events=current_weekend_events, notice=notice_msg)
+
+@app.route('/season-history')
+def season_history():
+    """Full season event results history, newest first."""
+    season_history_data = get_full_season_history()
+    return render_template('season_history.html', title="Season History", season_history=season_history_data)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
