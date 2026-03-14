@@ -17,8 +17,12 @@ from f1_config import DRIVER_MAP, CONSTRUCTOR_MAP, app_constructor_to_fastf1
 SESSION_RACE = 'R'
 SESSION_SPRINT = 'S'
 
-# Standard F1 finishing points (P1-P10)
+# Standard F1 finishing points (P1-P10) - driver race position
 FINISH_POINTS = {1: 25, 2: 18, 3: 15, 4: 12, 5: 10, 6: 8, 7: 6, 8: 4, 9: 2, 10: 1}
+
+# Constructor finishing points: top 10 constructors by best-finishing car
+# Points awarded by constructor rank (1st among constructors = 25, etc.)
+CONSTRUCTOR_FINISH_POINTS = {1: 25, 2: 18, 3: 15, 4: 12, 5: 10, 6: 8, 7: 6, 8: 4, 9: 2, 10: 1}
 
 # Tie-break column names (stored in dataframe for leaderboard sorting)
 TIEBREAK_COLS = ['Driver Race Pts', 'Constructor Race Pts', 'Top Driver Score', 'Best Finish Pos', 'Prior Best Finish Pos']
@@ -257,6 +261,7 @@ def get_team_scoring_breakdown(picks, year, round_name, is_test=False, session_t
             })
             driver_total += b.get("total", 0)
 
+        constructor_rank_map = _build_constructor_rank_map(results)
         scored_ff1_teams = set()
         for pick in constructors:
             official_team = app_constructor_to_fastf1(pick)
@@ -268,7 +273,7 @@ def get_team_scoring_breakdown(picks, year, round_name, is_test=False, session_t
                 c_pts, c_b = 0, dict(matched_drivers=[], driver_statuses=[], finishers=[], finisher_bonus=0, best_pos=None, finish_pts=0, deductions=0, total=0)
                 c_b["official_team"] = official_team
             else:
-                c_pts, c_b = _score_constructor_core(pick, results, session)
+                c_pts, c_b = _score_constructor_core(pick, results, session, constructor_rank_map)
                 scored_ff1_teams.add(official_team)
             constructor_breakdowns.append({
                 "pick": pick, "official_team": c_b.get("official_team"), "matched_drivers": c_b.get("matched_drivers", []),
@@ -424,8 +429,32 @@ def score_driver(d, fantasy_grid, dns_abbrs, fastest_lap_abbr, max_laps, session
     return pts, race_pts, finish
 
 
-def _score_constructor_core(pick, results, session):
-    """Internal: compute constructor score. Returns (pts, breakdown_dict)."""
+def _build_constructor_rank_map(results):
+    """
+    Build map: FastF1 TeamName (as in results) -> (constructor_rank, finish_pts).
+    Constructor rank is determined by each constructor's best-finishing car among constructors;
+    points by constructor rank: 1st=25, 2nd=18, 3rd=15, 4th=12, 5th=10, 6th=8, 7th=6, 8th=4, 9th=2, 10th=1.
+    """
+    team_best = {}  # team -> best car classified position
+    for team_name in results['TeamName'].dropna().unique():
+        t_data = results[results['TeamName'] == team_name]
+        finishers = [r for _, r in t_data.iterrows() if _finished(str(r.get('Status', '')))]
+        if finishers:
+            best = min(safe_int(c.get('ClassifiedPosition'), 999) for c in finishers)
+            team_best[team_name] = best
+
+    # Sort constructors by best position (ascending: P1 first), assign constructor rank 1, 2, ...
+    sorted_teams = sorted(team_best.items(), key=lambda x: x[1])
+    rank_map = {}
+    for rank, (team, _) in enumerate(sorted_teams, start=1):
+        pts = CONSTRUCTOR_FINISH_POINTS.get(rank, 0)
+        rank_map[team] = (rank, pts)
+    return rank_map
+
+
+def _score_constructor_core(pick, results, session, constructor_rank_map=None):
+    """Internal: compute constructor score. Returns (pts, breakdown_dict).
+    constructor_rank_map: optional map from FastF1 TeamName -> (rank, pts); built from results if None."""
     b = dict(matched_drivers=[], driver_statuses=[], finishers=[], finisher_bonus=0, best_pos=None, finish_pts=0, deductions=0, total=0)
 
     official_team = app_constructor_to_fastf1(pick)
@@ -439,6 +468,9 @@ def _score_constructor_core(pick, results, session):
 
     if t_data.empty:
         return 0, b
+
+    if constructor_rank_map is None:
+        constructor_rank_map = _build_constructor_rank_map(results)
 
     pts = 0
     for _, car in t_data.iterrows():
@@ -460,7 +492,8 @@ def _score_constructor_core(pick, results, session):
     if finishers:
         best_pos = min(safe_int(c.get('ClassifiedPosition'), 999) for c in finishers)
         b["best_pos"] = best_pos
-        fp = FINISH_POINTS.get(best_pos, 0)
+        actual_team = t_data['TeamName'].iloc[0]
+        rank, fp = constructor_rank_map.get(actual_team, (None, 0))
         pts += fp
         b["finish_pts"] = fp
 
@@ -468,12 +501,12 @@ def _score_constructor_core(pick, results, session):
     return pts, b
 
 
-def score_constructor(pick, results, session):
+def score_constructor(pick, results, session, constructor_rank_map=None):
     """
     Score a single constructor. Returns (points,).
-    10 per finishing car, best car's finish points, -10 per DSQ car.
+    10 per finishing car, constructor finish points by rank among constructors, -10 per DSQ car.
     """
-    pts, b = _score_constructor_core(pick, results, session)
+    pts, b = _score_constructor_core(pick, results, session, constructor_rank_map)
     if not b.get("matched_drivers"):
         logging.warning("[scoring] Constructor %s (%s): 0 rows matched in results", pick, b.get("official_team", "?"))
     elif len(b.get("finishers", [])) == 0 and len(b["matched_drivers"]) > 0:
@@ -587,6 +620,7 @@ def calculate_race_scores(df, year, round_name, race_payouts=None, is_test=False
 
         df['Previous Pos'] = df['Current Score'].rank(ascending=False, method='min').fillna(0).astype(int)
 
+        constructor_rank_map = _build_constructor_rank_map(results)
         race_totals = []
         driver_race_pts_list = []
         constructor_race_pts_list = []
@@ -640,7 +674,7 @@ def calculate_race_scores(df, year, round_name, race_payouts=None, is_test=False
                     )
                     c_pts = 0
                 else:
-                    c_pts = score_constructor(pick, results, session)
+                    c_pts = score_constructor(pick, results, session, constructor_rank_map)
                     scored_ff1_teams.add(official_team)
                 total += c_pts
                 constructor_race_total += c_pts
