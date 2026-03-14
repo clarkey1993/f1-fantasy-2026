@@ -270,7 +270,7 @@ def get_team_scoring_breakdown(picks, year, round_name, is_test=False, session_t
                     "[scoring] Duplicate constructor mapping for player picks: %s -> %s already scored",
                     pick, official_team
                 )
-                c_pts, c_b = 0, dict(matched_drivers=[], driver_statuses=[], finishers=[], finisher_bonus=0, best_pos=None, finish_pts=0, deductions=0, total=0)
+                c_pts, c_b = 0, dict(matched_drivers=[], driver_statuses=[], finishers=[], finisher_bonus=0, best_pos=None, constructor_rank=None, finish_pts=0, deductions=0, total=0)
                 c_b["official_team"] = official_team
             else:
                 c_pts, c_b = _score_constructor_core(pick, results, session, constructor_rank_map)
@@ -279,8 +279,8 @@ def get_team_scoring_breakdown(picks, year, round_name, is_test=False, session_t
                 "pick": pick, "official_team": c_b.get("official_team"), "matched_drivers": c_b.get("matched_drivers", []),
                 "driver_statuses": c_b.get("driver_statuses", []), "finishers": c_b.get("finishers", []),
                 "finisher_bonus": c_b.get("finisher_bonus", 0), "best_pos": c_b.get("best_pos"),
-                "finish_pts": c_b.get("finish_pts", 0), "deductions": c_b.get("deductions", 0),
-                "total": c_b.get("total", 0)
+                "constructor_rank": c_b.get("constructor_rank"), "finish_pts": c_b.get("finish_pts", 0),
+                "deductions": c_b.get("deductions", 0), "total": c_b.get("total", 0)
             })
             constructor_total += c_pts
 
@@ -493,9 +493,15 @@ def _score_constructor_core(pick, results, session, constructor_rank_map=None):
         best_pos = min(safe_int(c.get('ClassifiedPosition'), 999) for c in finishers)
         b["best_pos"] = best_pos
         actual_team = t_data['TeamName'].iloc[0]
-        rank, fp = constructor_rank_map.get(actual_team, (None, 0))
+        constructor_rank, fp = constructor_rank_map.get(actual_team, (None, 0))
+        # CRITICAL: Use constructor rank points only. Never use FINISH_POINTS.get(best_pos).
+        b["constructor_rank"] = constructor_rank
         pts += fp
         b["finish_pts"] = fp
+        logging.info(
+            "[scoring] Constructor %s: best_driver_pos=%s constructor_rank=%s finish_pts_used=%s (from rank map, NOT driver position)",
+            pick, best_pos, constructor_rank, fp
+        )
 
     b["total"] = pts
     return pts, b

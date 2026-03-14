@@ -275,6 +275,7 @@
                                 <th>Finishers</th>
                                 <th>Finisher Bonus</th>
                                 <th>Best Pos</th>
+                                <th>Constr Rank</th>
                                 <th>Finish Pts</th>
                                 <th>Ded</th>
                                 <th>Total</th>
@@ -290,6 +291,7 @@
                                 <td class="small">{{ c.finishers|join(', ') or '-' }}</td>
                                 <td>{{ c.finisher_bonus }}</td>
                                 <td>{{ c.best_pos if c.best_pos is not none else '-' }}</td>
+                                <td>{{ c.constructor_rank if c.constructor_rank is not none else '-' }}</td>
                                 <td>{{ c.finish_pts }}</td>
                                 <td>{{ c.deductions }}</td>
                                 <td><strong>{{ c.total }}</strong></td>
