@@ -57,6 +57,10 @@ NOTICE_FILE = 'notice.txt'
 HISTORY_FILE = 'race_sync_history.json'
 SEASON_HISTORY_FILE = 'season_results_history.json'
 
+# Google Sheets worksheet tab names for persistent history (source of truth)
+RACE_SYNC_SHEET = "RaceSyncHistory"
+SEASON_RESULTS_SHEET = "SeasonResultsHistory"
+
 # 2026 Sprint weekend bases: GP cannot be synced before its Sprint
 SPRINT_WEEKEND_BASES = ('China', 'Miami', 'Canada', 'Great Britain', 'Netherlands', 'Singapore')
 
@@ -84,6 +88,33 @@ def get_gspread_client():
         print(f"⚠️ Auth Error: {e}")
     
     return None
+
+
+def _get_spreadsheet():
+    """Open the main spreadsheet. Returns None if no credentials."""
+    gc = get_gspread_client()
+    if not gc:
+        return None
+    try:
+        return gc.open_by_key(SHEET_ID)
+    except Exception as e:
+        print(f"Failed to open spreadsheet: {e}")
+        return None
+
+
+def _get_or_create_worksheet(sh, title, headers):
+    """Get worksheet by title, or create it with headers if it doesn't exist."""
+    try:
+        return sh.worksheet(title)
+    except Exception:
+        try:
+            ws = sh.add_worksheet(title=title, rows=500, cols=10)
+            ws.append_row(headers)
+            return ws
+        except Exception as e:
+            print(f"Failed to create worksheet {title}: {e}")
+            raise
+
 
 def get_driver_image(name):
     """Returns official F1 image URL or None."""
@@ -228,10 +259,25 @@ def reset_test_league_data():
     df = get_league_data().copy()
     save_test_league_data(df)
 
-# --- PRODUCTION SYNC HISTORY (for duplicate & Sprint-before-GP validation) ---
+# --- PRODUCTION SYNC HISTORY (Google Sheets = source of truth) ---
 
-def load_sync_history():
-    """Load production sync history from race_sync_history.json. Returns list of dicts."""
+RACE_SYNC_HEADERS = ["event_name", "normalized", "session_type", "timestamp"]
+
+def _load_sync_history_from_sheets():
+    """Load race sync history from RaceSyncHistory worksheet. Returns list of dicts or None on failure."""
+    sh = _get_spreadsheet()
+    if not sh:
+        return None
+    try:
+        ws = _get_or_create_worksheet(sh, RACE_SYNC_SHEET, RACE_SYNC_HEADERS)
+        rows = ws.get_all_records()
+        return [dict(r) for r in rows if r.get("event_name")]
+    except Exception as e:
+        print(f"Failed to load sync history from Sheets: {e}")
+        return None
+
+def _load_sync_history_from_json():
+    """Load from local JSON fallback."""
     if not os.path.exists(HISTORY_FILE):
         return []
     try:
@@ -241,10 +287,81 @@ def load_sync_history():
     except Exception:
         return []
 
+def _migrate_sync_history_to_sheets(local_data):
+    """One-time migration: push local JSON data to Sheets when Sheets is empty."""
+    if not local_data:
+        return
+    sh = _get_spreadsheet()
+    if not sh:
+        return
+    try:
+        ws = _get_or_create_worksheet(sh, RACE_SYNC_SHEET, RACE_SYNC_HEADERS)
+        for entry in local_data:
+            row = [
+                str(entry.get("event_name", "")),
+                str(entry.get("normalized", "")),
+                str(entry.get("session_type", "GP")),
+                str(entry.get("timestamp", "")),
+            ]
+            ws.append_row(row)
+        print("[sync-history] Migrated local JSON to Google Sheets RaceSyncHistory")
+    except Exception as e:
+        print(f"Migration of sync history to Sheets failed: {e}")
+
+def load_sync_history():
+    """Load production sync history. Google Sheets is source of truth; local JSON is fallback."""
+    sheet_data = _load_sync_history_from_sheets()
+    local = _load_sync_history_from_json()
+    if sheet_data is not None and sheet_data:
+        return sheet_data
+    if sheet_data is not None and not sheet_data and local:
+        _migrate_sync_history_to_sheets(local)
+        return local
+    if sheet_data is not None:
+        return sheet_data
+    if local:
+        _migrate_sync_history_to_sheets(local)
+        return local
+    return []
+
+def _save_sync_history_to_sheets(history):
+    """Write full sync history to RaceSyncHistory worksheet."""
+    sh = _get_spreadsheet()
+    if not sh:
+        return False
+    try:
+        ws = _get_or_create_worksheet(sh, RACE_SYNC_SHEET, RACE_SYNC_HEADERS)
+        rows = [RACE_SYNC_HEADERS]
+        for e in history:
+            rows.append([
+                str(e.get("event_name", "")),
+                str(e.get("normalized", "")),
+                str(e.get("session_type", "GP")),
+                str(e.get("timestamp", "")),
+            ])
+        ws.clear()
+        if rows:
+            ws.update(range_name='A1', values=rows)
+            ws.resize(rows=len(rows))
+        return True
+    except Exception as e:
+        print(f"Failed to save sync history to Sheets: {e}")
+        return False
+
 def save_sync_history(history):
-    """Save production sync history to race_sync_history.json."""
-    with open(HISTORY_FILE, 'w') as f:
-        json.dump(history, f, indent=2)
+    """Save production sync history. Primary: Google Sheets. Optional: local JSON cache."""
+    if _save_sync_history_to_sheets(history):
+        try:
+            with open(HISTORY_FILE, 'w') as f:
+                json.dump(history, f, indent=2)
+        except Exception:
+            pass
+    else:
+        try:
+            with open(HISTORY_FILE, 'w') as f:
+                json.dump(history, f, indent=2)
+        except Exception:
+            pass
 
 def add_sync_to_history(event_name, session_type):
     """Append a production sync to history."""
@@ -300,10 +417,41 @@ def get_recent_synced_events(limit=10):
     return list(reversed(history[-limit:])) if history else []
 
 
-# --- SEASON RESULTS HISTORY (event-by-event tables, production-only) ---
+# --- SEASON RESULTS HISTORY (Google Sheets = source of truth) ---
 
-def load_season_results_history():
-    """Load season event results history from season_results_history.json. Returns list of dicts."""
+SEASON_RESULTS_HEADERS = ["event_name", "normalized", "session_type", "timestamp", "results_json"]
+
+def _load_season_results_from_sheets():
+    """Load season results history from SeasonResultsHistory worksheet. Returns list of dicts or None on failure."""
+    sh = _get_spreadsheet()
+    if not sh:
+        return None
+    try:
+        ws = _get_or_create_worksheet(sh, SEASON_RESULTS_SHEET, SEASON_RESULTS_HEADERS)
+        rows = ws.get_all_records()
+        out = []
+        for r in rows:
+            if not r.get("event_name"):
+                continue
+            results_json = r.get("results_json", "[]")
+            try:
+                results = json.loads(results_json) if results_json else []
+            except json.JSONDecodeError:
+                results = []
+            out.append({
+                "event_name": r.get("event_name", ""),
+                "normalized": r.get("normalized", ""),
+                "session_type": r.get("session_type", "GP"),
+                "timestamp": r.get("timestamp", ""),
+                "results": results,
+            })
+        return out
+    except Exception as e:
+        print(f"Failed to load season results from Sheets: {e}")
+        return None
+
+def _load_season_results_from_json():
+    """Load from local JSON fallback."""
     if not os.path.exists(SEASON_HISTORY_FILE):
         return []
     try:
@@ -313,19 +461,55 @@ def load_season_results_history():
     except Exception:
         return []
 
+def _migrate_season_results_to_sheets(local_data):
+    """One-time migration: push local JSON data to SeasonResultsHistory when Sheets is empty."""
+    if not local_data:
+        return
+    sh = _get_spreadsheet()
+    if not sh:
+        return
+    try:
+        ws = _get_or_create_worksheet(sh, SEASON_RESULTS_SHEET, SEASON_RESULTS_HEADERS)
+        for entry in local_data:
+            results_json = json.dumps(entry.get("results", []))
+            row = [
+                str(entry.get("event_name", "")),
+                str(entry.get("normalized", "")),
+                str(entry.get("session_type", "GP")),
+                str(entry.get("timestamp", "")),
+                results_json,
+            ]
+            ws.append_row(row)
+        print("[season-history] Migrated local JSON to Google Sheets SeasonResultsHistory")
+    except Exception as e:
+        print(f"Migration of season results to Sheets failed: {e}")
+
+def load_season_results_history():
+    """Load season results history. Google Sheets is source of truth; local JSON is fallback."""
+    sheet_data = _load_season_results_from_sheets()
+    local = _load_season_results_from_json()
+    if sheet_data is not None and sheet_data:
+        return sheet_data
+    if sheet_data is not None and not sheet_data and local:
+        _migrate_season_results_to_sheets(local)
+        return local
+    if sheet_data is not None:
+        return sheet_data
+    if local:
+        _migrate_season_results_to_sheets(local)
+        return local
+    return []
+
 
 def rebuild_season_history_from_sync_history():
     """
-    Rebuild season_results_history.json from race_sync_history.json.
+    Rebuild season results history from race sync history (Google Sheets).
     Replays production events on a COPY of league data; never modifies production.
     Returns True if rebuilt, False if recovery not possible.
     """
     sync_history = load_sync_history()
     if not sync_history:
-        if not os.path.exists(HISTORY_FILE):
-            print("[season-history] Cannot recover: race_sync_history.json missing. Season history unavailable.")
-        else:
-            print("[season-history] Cannot recover: race_sync_history.json is empty.")
+        print("[season-history] Cannot recover: race sync history (Sheets) is empty. Season history unavailable.")
         return False
 
     df = get_league_data()
@@ -357,7 +541,7 @@ def rebuild_season_history_from_sync_history():
         append_event_snapshot_to_history(new_season_history, evt, sess_type, df)
 
     save_season_results_history(new_season_history)
-    print(f"[season-history] Recovered {len(new_season_history)} events from race_sync_history.json")
+    print(f"[season-history] Recovered {len(new_season_history)} events from race sync history (Sheets)")
     return True
 
 
@@ -367,10 +551,46 @@ def _ensure_season_history_available():
         return
     rebuild_season_history_from_sync_history()
 
+def _save_season_results_to_sheets(history):
+    """Write full season results history to SeasonResultsHistory worksheet."""
+    sh = _get_spreadsheet()
+    if not sh:
+        return False
+    try:
+        ws = _get_or_create_worksheet(sh, SEASON_RESULTS_SHEET, SEASON_RESULTS_HEADERS)
+        rows = [SEASON_RESULTS_HEADERS]
+        for e in history:
+            results_json = json.dumps(e.get("results", []))
+            rows.append([
+                str(e.get("event_name", "")),
+                str(e.get("normalized", "")),
+                str(e.get("session_type", "GP")),
+                str(e.get("timestamp", "")),
+                results_json,
+            ])
+        ws.clear()
+        if rows:
+            ws.update(range_name='A1', values=rows)
+            ws.resize(rows=len(rows))
+        return True
+    except Exception as e:
+        print(f"Failed to save season results to Sheets: {e}")
+        return False
+
 def save_season_results_history(history):
-    """Save season event results history to season_results_history.json."""
-    with open(SEASON_HISTORY_FILE, 'w') as f:
-        json.dump(history, f, indent=2)
+    """Save season results history. Primary: Google Sheets. Optional: local JSON cache."""
+    if _save_season_results_to_sheets(history):
+        try:
+            with open(SEASON_HISTORY_FILE, 'w') as f:
+                json.dump(history, f, indent=2)
+        except Exception:
+            pass
+    else:
+        try:
+            with open(SEASON_HISTORY_FILE, 'w') as f:
+                json.dump(history, f, indent=2)
+        except Exception:
+            pass
 
 def _build_event_snapshot(event_name, session_type, df):
     """Build one event snapshot from df (which has Last Race Pts = points for this event)."""
