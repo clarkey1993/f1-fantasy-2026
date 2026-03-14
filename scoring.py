@@ -108,7 +108,8 @@ def _finished(status):
     if s.startswith('+'):
         return True
     return False
-
+    #
+    # Don't treat drivers as finished if they are classified as DNs
 
 def _did_not_start(status, laps):
     """True if driver never passed the race start line (e.g. formation lap retirement)."""
