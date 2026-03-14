@@ -108,7 +108,7 @@ def _finished(status):
     if s.startswith('+'):
         return True
     return False
-   #testing push to github
+   #testing push to github 2
 
 def _did_not_start(status, laps):
     """True if driver never passed the race start line (e.g. formation lap retirement)."""
