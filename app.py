@@ -1282,7 +1282,7 @@ def admin_debug_score():
 
     race_name = (request.form.get('debug_race_name') or "").strip()
     player_email = (request.form.get('player_email') or "").strip().lower()
-    debug_mode = (request.form.get('debug_mode') or "production").strip()
+    debug_mode = (request.form.get('debug_mode') or "current_season").strip()
 
     if not race_name:
         flash("Debug: No race selected.", "warning")

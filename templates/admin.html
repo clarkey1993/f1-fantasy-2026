@@ -182,12 +182,22 @@
                 <p class="small text-muted mb-3">Read-only. Select a player and race to see a full scoring breakdown using their saved picks. No data is modified.</p>
                 <form action="{{ url_for('admin_debug_score') }}" method="post">
                     <div class="mb-2">
+                        <label class="form-label">Data Source</label>
+                        <select class="form-select" name="debug_mode">
+                            <option value="current_season" selected>Current Season Event</option>
+                            <option value="gp_test">Previous Season GP Test</option>
+                            <option value="sprint_test">Previous Season Sprint Test</option>
+                        </select>
+                        <small class="text-muted">Current Season uses the selected race and {{ year }} data. Test modes use random {{ year - 1 }} events.</small>
+                    </div>
+                    <div class="mb-2">
                         <label class="form-label">Race / Event</label>
                         <select class="form-select" name="debug_race_name" required>
                             {% for race in races %}
                             <option value="{{ race }}">{{ race }}</option>
                             {% endfor %}
                         </select>
+                        <small class="text-muted">Used only for Current Season Event.</small>
                     </div>
                     <div class="mb-2">
                         <label class="form-label">Player</label>
@@ -196,14 +206,6 @@
                             {% for p in players %}
                             <option value="{{ p.email }}">{{ p.label }}</option>
                             {% endfor %}
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Mode</label>
-                        <select class="form-select" name="debug_mode">
-                            <option value="production">Production season event</option>
-                            <option value="gp_test">Previous season GP test</option>
-                            <option value="sprint_test">Previous season Sprint test</option>
                         </select>
                     </div>
                     <button type="submit" class="btn btn-info text-dark w-100">Show Scoring Breakdown</button>
