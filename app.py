@@ -25,6 +25,7 @@ from f1_config import (
     TEAM_CONFIG,
     get_team_config,
     LEAGUE_YEAR,
+    app_constructor_to_fastf1,
 )
 
 app = Flask(__name__)
@@ -312,6 +313,60 @@ def load_season_results_history():
     except Exception:
         return []
 
+
+def rebuild_season_history_from_sync_history():
+    """
+    Rebuild season_results_history.json from race_sync_history.json.
+    Replays production events on a COPY of league data; never modifies production.
+    Returns True if rebuilt, False if recovery not possible.
+    """
+    sync_history = load_sync_history()
+    if not sync_history:
+        if not os.path.exists(HISTORY_FILE):
+            print("[season-history] Cannot recover: race_sync_history.json missing. Season history unavailable.")
+        else:
+            print("[season-history] Cannot recover: race_sync_history.json is empty.")
+        return False
+
+    df = get_league_data()
+    if df.empty:
+        print("[season-history] Cannot recover: no league data.")
+        return False
+
+    df = df.copy()
+    default_payouts = [20, 15, 10] + [5] * 12
+
+    for c in ['Current Score', 'Total Winnings', 'Previous Pos', 'Last Race Pts', 'Total Spent',
+              'Driver Race Pts', 'Constructor Race Pts', 'Top Driver Score']:
+        if c in df.columns:
+            df[c] = 0
+    for c in ['Best Finish Pos', 'Prior Best Finish Pos']:
+        if c in df.columns:
+            df[c] = 999
+
+    new_season_history = []
+    for entry in sync_history:
+        evt = (entry.get("event_name") or "").strip()
+        if not evt:
+            continue
+        sess_type = entry.get("session_type", "GP")
+        df, msg = scoring.calculate_race_scores(df, LEAGUE_YEAR, evt, default_payouts)
+        if "Successfully" not in msg:
+            print(f"[season-history] Rebuild failed at event '{evt}': {msg}")
+            return False
+        append_event_snapshot_to_history(new_season_history, evt, sess_type, df)
+
+    save_season_results_history(new_season_history)
+    print(f"[season-history] Recovered {len(new_season_history)} events from race_sync_history.json")
+    return True
+
+
+def _ensure_season_history_available():
+    """If season history is empty but sync history exists, rebuild. No-op if history already present."""
+    if load_season_results_history():
+        return
+    rebuild_season_history_from_sync_history()
+
 def save_season_results_history(history):
     """Save season event results history to season_results_history.json."""
     with open(SEASON_HISTORY_FILE, 'w') as f:
@@ -381,6 +436,7 @@ def get_current_weekend_events():
     - Sprint weekend (both synced): Sprint first, GP second
     - Only one event synced: that one
     """
+    _ensure_season_history_available()
     raw = load_season_results_history()
     if not raw:
         return []
@@ -401,6 +457,7 @@ def get_current_weekend_events():
 
 def get_full_season_history():
     """Return full season history formatted for display, newest first."""
+    _ensure_season_history_available()
     raw = load_season_results_history()
     return [_format_history_entry(e) for e in reversed(raw)]
 
@@ -944,11 +1001,20 @@ def signup():
         singles = [g_c, g_d, g_e, g_f, g_g, g_h, g_j, g_k, g_l, g_m]
         if not all(singles): errors.append("Please make a selection for every group.")
 
+        all_picks = g_a + g_b + [g_c, g_d, g_e, g_f, g_g, g_h] + g_i + [g_j, g_k, g_l, g_m]
+        constructors = all_picks[10:]
+        seen_ff1 = {}
+        for c in constructors:
+            ff1 = app_constructor_to_fastf1(c)
+            if ff1 in seen_ff1:
+                errors.append(f"Cannot pick both '{c}' and '{seen_ff1[ff1]}' — they map to the same team ({ff1}).")
+                break
+            seen_ff1[ff1] = c
+
         if errors:
             for e in errors: flash(e, "danger")
         else:
             # 4. Duplicate Check
-            all_picks = g_a + g_b + [g_c, g_d, g_e, g_f, g_g, g_h] + g_i + [g_j, g_k, g_l, g_m]
             
             df = get_league_data()
             new_picks_set = set(all_picks)

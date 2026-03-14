@@ -108,8 +108,7 @@ def _finished(status):
     if s.startswith('+'):
         return True
     return False
-    #
-    # Don't treat drivers as finished if they are classified as DNs
+   
 
 def _did_not_start(status, laps):
     """True if driver never passed the race start line (e.g. formation lap retirement)."""
@@ -258,8 +257,19 @@ def get_team_scoring_breakdown(picks, year, round_name, is_test=False, session_t
             })
             driver_total += b.get("total", 0)
 
+        scored_ff1_teams = set()
         for pick in constructors:
-            c_pts, c_b = _score_constructor_core(pick, results, session)
+            official_team = app_constructor_to_fastf1(pick)
+            if official_team in scored_ff1_teams:
+                logging.warning(
+                    "[scoring] Duplicate constructor mapping for player picks: %s -> %s already scored",
+                    pick, official_team
+                )
+                c_pts, c_b = 0, dict(matched_drivers=[], driver_statuses=[], finishers=[], finisher_bonus=0, best_pos=None, finish_pts=0, deductions=0, total=0)
+                c_b["official_team"] = official_team
+            else:
+                c_pts, c_b = _score_constructor_core(pick, results, session)
+                scored_ff1_teams.add(official_team)
             constructor_breakdowns.append({
                 "pick": pick, "official_team": c_b.get("official_team"), "matched_drivers": c_b.get("matched_drivers", []),
                 "driver_statuses": c_b.get("driver_statuses", []), "finishers": c_b.get("finishers", []),
@@ -620,8 +630,18 @@ def calculate_race_scores(df, year, round_name, race_payouts=None, is_test=False
                 if finish_pos is not None and finish_pos < best_finish:
                     best_finish = finish_pos
 
+            scored_ff1_teams = set()
             for pick in constructors:
-                c_pts = score_constructor(pick, results, session)
+                official_team = app_constructor_to_fastf1(pick)
+                if official_team in scored_ff1_teams:
+                    logging.warning(
+                        "[scoring] Duplicate constructor mapping for player picks: %s -> %s already scored",
+                        pick, official_team
+                    )
+                    c_pts = 0
+                else:
+                    c_pts = score_constructor(pick, results, session)
+                    scored_ff1_teams.add(official_team)
                 total += c_pts
                 constructor_race_total += c_pts
 
