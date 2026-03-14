@@ -417,6 +417,36 @@ def get_recent_synced_events(limit=10):
     return list(reversed(history[-limit:])) if history else []
 
 
+def clear_season_history():
+    """
+    Clear production race sync history and season results history.
+    Clears: RaceSyncHistory worksheet, SeasonResultsHistory worksheet, local JSON cache files.
+    Does NOT touch: league data, picks, scores, test data, main league sheet.
+    Returns True if Sheets were cleared (or no credentials), False on Sheets error.
+    """
+    sh = _get_spreadsheet()
+    if sh:
+        try:
+            ws_sync = _get_or_create_worksheet(sh, RACE_SYNC_SHEET, RACE_SYNC_HEADERS)
+            ws_sync.clear()
+            ws_sync.update(range_name='A1', values=[RACE_SYNC_HEADERS])
+            ws_sync.resize(rows=1)
+            ws_season = _get_or_create_worksheet(sh, SEASON_RESULTS_SHEET, SEASON_RESULTS_HEADERS)
+            ws_season.clear()
+            ws_season.update(range_name='A1', values=[SEASON_RESULTS_HEADERS])
+            ws_season.resize(rows=1)
+        except Exception as e:
+            print(f"Failed to clear history worksheets: {e}")
+            return False
+    for f in [HISTORY_FILE, SEASON_HISTORY_FILE]:
+        if os.path.exists(f):
+            try:
+                os.remove(f)
+            except Exception as e:
+                print(f"Failed to remove local cache {f}: {e}")
+    return True
+
+
 # --- SEASON RESULTS HISTORY (Google Sheets = source of truth) ---
 
 SEASON_RESULTS_HEADERS = ["event_name", "normalized", "session_type", "timestamp", "results_json"]
@@ -534,11 +564,12 @@ def rebuild_season_history_from_sync_history():
         if not evt:
             continue
         sess_type = entry.get("session_type", "GP")
+        df_before = df.copy()
         df, msg = scoring.calculate_race_scores(df, LEAGUE_YEAR, evt, default_payouts)
         if "Successfully" not in msg:
             print(f"[season-history] Rebuild failed at event '{evt}': {msg}")
             return False
-        append_event_snapshot_to_history(new_season_history, evt, sess_type, df)
+        append_event_snapshot_to_history(new_season_history, evt, sess_type, df, df_before=df_before)
 
     save_season_results_history(new_season_history)
     print(f"[season-history] Recovered {len(new_season_history)} events from race sync history (Sheets)")
@@ -592,8 +623,9 @@ def save_season_results_history(history):
         except Exception:
             pass
 
-def _build_event_snapshot(event_name, session_type, df):
-    """Build one event snapshot from df (which has Last Race Pts = points for this event)."""
+def _build_event_snapshot(event_name, session_type, df, df_before=None):
+    """Build one event snapshot from df (which has Last Race Pts = points for this event).
+    If df_before is provided, event_winnings = Total Winnings (after) - Total Winnings (before) for that event only."""
     _race_sort_spec = [
         ('Last Race Pts', False), ('Driver Race Pts', False), ('Top Driver Score', False),
         ('Constructor Race Pts', False), ('Best Finish Pos', True), ('Prior Best Finish Pos', True), ('Name', True),
@@ -602,15 +634,21 @@ def _build_event_snapshot(event_name, session_type, df):
     race_sort_asc = [asc for c, asc in _race_sort_spec if c in df.columns]
     sorted_df = df.sort_values(by=race_sort_cols, ascending=race_sort_asc)
     results = []
-    for i, (_, row) in enumerate(sorted_df.iterrows()):
+    for i, (idx, row) in enumerate(sorted_df.iterrows()):
         prev = int(row['Previous Pos']) if row.get('Previous Pos', 0) > 0 else None
+        total_after = float(row.get('Total Winnings', 0))
+        if df_before is not None and idx in df_before.index:
+            total_before = float(df_before.loc[idx, 'Total Winnings']) if 'Total Winnings' in df_before.columns else 0
+            event_winnings = max(0, total_after - total_before)
+        else:
+            event_winnings = total_after
         results.append({
             "pos": i + 1,
             "display_pos": f"({prev}) {i + 1}" if prev else str(i + 1),
             "name": str(row.get('Name', '')),
             "nickname": str(row.get('Nickname', '')),
             "event_pts": int(row.get('Last Race Pts', 0)),
-            "total_winnings": float(row.get('Total Winnings', 0)),
+            "event_winnings": event_winnings,
         })
     return {
         "event_name": event_name,
@@ -620,16 +658,16 @@ def _build_event_snapshot(event_name, session_type, df):
         "results": results,
     }
 
-def add_event_to_season_history(event_name, session_type, df):
+def add_event_to_season_history(event_name, session_type, df, df_before=None):
     """Append one event snapshot to season results history. Production sync only."""
-    entry = _build_event_snapshot(event_name, session_type, df)
+    entry = _build_event_snapshot(event_name, session_type, df, df_before)
     history = load_season_results_history()
     history.append(entry)
     save_season_results_history(history)
 
-def append_event_snapshot_to_history(history_list, event_name, session_type, df):
+def append_event_snapshot_to_history(history_list, event_name, session_type, df, df_before=None):
     """Append one event snapshot to a history list. Used when rebuilding during force_sync."""
-    history_list.append(_build_event_snapshot(event_name, session_type, df))
+    history_list.append(_build_event_snapshot(event_name, session_type, df, df_before))
 
 def _format_history_entry(entry):
     """Convert raw history entry to display dict with title, results, etc."""
@@ -1404,6 +1442,16 @@ def admin_reset_scores():
     
     return redirect(url_for('admin'))
 
+@app.route('/admin/reset_history', methods=['POST'])
+def admin_reset_history():
+    """Clear production race sync history and season results history. Does NOT touch league data, picks, or scores."""
+    if 'user' not in session or session['user'] != "Admin":
+        return redirect(url_for('home'))
+
+    clear_season_history()
+    flash("PRODUCTION MODE: Season history cleared. Players and picks were not changed.", "success")
+    return redirect(url_for('admin'))
+
 @app.route('/admin/reset', methods=['POST'])
 def admin_reset():
     if 'user' not in session or session['user'] != "Admin":
@@ -1466,7 +1514,7 @@ def admin_sync():
                 flash(f"PRODUCTION MODE: {msg} Google Sheet sync failed.", "danger")
             session_type = "Sprint" if is_sprint_event(race_name) else "GP"
             add_sync_to_history(race_name, session_type)
-            add_event_to_season_history(race_name, session_type, updated_df)
+            add_event_to_season_history(race_name, session_type, updated_df, df_before=df)
         else:
             flash(msg, "danger")
 
@@ -1511,6 +1559,7 @@ def admin_sync():
         for entry in history:
             evt = (entry.get("event_name") or "").strip()
             payouts = force_payouts if evt == race_name else default_payouts
+            df_before = df.copy()
             df, msg = scoring.calculate_race_scores(df, year, evt, payouts)
             if "Successfully" not in msg:
                 flash(f"PRODUCTION MODE: Force resync failed during rebuild: {msg}", "danger")
@@ -1518,7 +1567,7 @@ def admin_sync():
             if evt == race_name:
                 last_msg = msg
             sess_type = entry.get("session_type", "GP")
-            append_event_snapshot_to_history(new_season_history, evt, sess_type, df)
+            append_event_snapshot_to_history(new_season_history, evt, sess_type, df, df_before=df_before)
 
         save_season_results_history(new_season_history)
         save_status = save_league_data(df)

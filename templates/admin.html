@@ -328,6 +328,9 @@
                 <form action="{{ url_for('admin_reset_scores') }}" method="post" onsubmit="return confirm('Are you sure you want to reset all SCORES to 0? Teams will be kept.');" class="mb-3">
                     <button type="submit" class="btn btn-warning w-100">🔄 Reset Scores Only (Keep Teams)</button>
                 </form>
+                <form action="{{ url_for('admin_reset_history') }}" method="post" onsubmit="return confirm('This will clear synced race history and season results. Players and picks will NOT be changed. Continue?');" class="mb-3">
+                    <button type="submit" class="btn btn-outline-danger w-100">📋 Reset Season History</button>
+                </form>
                 <form action="{{ url_for('admin_reset') }}" method="post" onsubmit="return confirm('Are you sure you want to WIPE the entire league database?');">
                     <button type="submit" class="btn btn-danger w-100">🗑️ RESET LEAGUE (Wipe Data)</button>
                 </form>

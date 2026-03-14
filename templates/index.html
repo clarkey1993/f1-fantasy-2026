@@ -37,7 +37,7 @@
                         <td>{{ row.name }}</td>
                         <td><a href="{{ url_for('view_team', nickname=row.nickname) }}" class="text-decoration-none fw-bold">{{ row.nickname }}</a></td>
                         <td class="text-end fw-bold">{{ row.event_pts }}</td>
-                        <td class="text-end text-success">£{{ "%.2f"|format(row.total_winnings) }}</td>
+                        <td class="text-end text-success">£{{ "%.2f"|format(row.event_winnings if 'event_winnings' in row else row.total_winnings|default(0)) }}</td>
                     </tr>
                     {% else %}
                     <tr><td colspan="5" class="text-center text-muted">No data.</td></tr>
