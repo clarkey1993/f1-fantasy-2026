@@ -175,6 +175,130 @@
             </div>
         </div>
 
+        <!-- Debug Score Team -->
+        <div class="card mt-4 border-info">
+            <div class="card-header bg-info text-dark fw-bold">🔍 Debug Score Team</div>
+            <div class="card-body">
+                <p class="small text-muted mb-3">Read-only. Select a player and race to see a full scoring breakdown using their saved picks. No data is modified.</p>
+                <form action="{{ url_for('admin_debug_score') }}" method="post">
+                    <div class="mb-2">
+                        <label class="form-label">Race / Event</label>
+                        <select class="form-select" name="debug_race_name" required>
+                            {% for race in races %}
+                            <option value="{{ race }}">{{ race }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">Player</label>
+                        <select class="form-select" name="player_email" required>
+                            <option value="">-- Select player --</option>
+                            {% for p in players %}
+                            <option value="{{ p.email }}">{{ p.label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Mode</label>
+                        <select class="form-select" name="debug_mode">
+                            <option value="production">Production season event</option>
+                            <option value="gp_test">Previous season GP test</option>
+                            <option value="sprint_test">Previous season Sprint test</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-info text-dark w-100">Show Scoring Breakdown</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Debug Result (displayed below form when present) -->
+        {% if debug_result %}
+        <div class="card mt-4 border-info">
+            <div class="card-header bg-info text-dark fw-bold">📊 Scoring Breakdown — {{ debug_result.player_label or 'Player' }} — {{ debug_result.event_label }}</div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Pick</th>
+                                <th>Abbr</th>
+                                <th>Grid</th>
+                                <th>Grid Pts</th>
+                                <th>Laps</th>
+                                <th>Lap Pts</th>
+                                <th>Status</th>
+                                <th>Finish</th>
+                                <th>Gain Pts</th>
+                                <th>Finish Pts</th>
+                                <th>FL Pts</th>
+                                <th>Ded</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for d in debug_result.driver_breakdowns %}
+                            <tr>
+                                <td>{{ d.pick }}</td>
+                                <td>{{ d.abbr or '-' }}</td>
+                                <td>{{ d.fantasy_grid_pos if d.fantasy_grid_pos is not none else '-' }}</td>
+                                <td>{{ d.grid_pts }}</td>
+                                <td>{{ d.laps }}</td>
+                                <td>{{ d.lap_pts }}</td>
+                                <td class="small" style="max-width:120px;">{{ d.status[:40] }}{% if d.status|length > 40 %}…{% endif %}</td>
+                                <td>{{ d.finish_pos if d.finish_pos is not none else '-' }}</td>
+                                <td>{{ d.gain_pts }}</td>
+                                <td>{{ d.finish_pts }}</td>
+                                <td>{{ d.fastest_lap_pts }}</td>
+                                <td>{{ d.deductions }}</td>
+                                <td><strong>{{ d.total }}</strong></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="table-responsive mt-2">
+                    <table class="table table-sm table-bordered mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Constructor</th>
+                                <th>Official Team</th>
+                                <th>Matched Drivers</th>
+                                <th>Statuses</th>
+                                <th>Finishers</th>
+                                <th>Finisher Bonus</th>
+                                <th>Best Pos</th>
+                                <th>Finish Pts</th>
+                                <th>Ded</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for c in debug_result.constructor_breakdowns %}
+                            <tr>
+                                <td>{{ c.pick }}</td>
+                                <td>{{ c.official_team or '-' }}</td>
+                                <td class="small">{{ c.matched_drivers|join(', ') or '-' }}</td>
+                                <td class="small" style="max-width:150px;">{{ c.driver_statuses|join('; ') or '-' }}</td>
+                                <td class="small">{{ c.finishers|join(', ') or '-' }}</td>
+                                <td>{{ c.finisher_bonus }}</td>
+                                <td>{{ c.best_pos if c.best_pos is not none else '-' }}</td>
+                                <td>{{ c.finish_pts }}</td>
+                                <td>{{ c.deductions }}</td>
+                                <td><strong>{{ c.total }}</strong></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="p-3 bg-light border-top">
+                    <strong>Driver total:</strong> {{ debug_result.driver_total }} &nbsp;|&nbsp;
+                    <strong>Constructor total:</strong> {{ debug_result.constructor_total }} &nbsp;|&nbsp;
+                    <strong>Grand total:</strong> {{ debug_result.grand_total }}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
         <!-- Data Management -->
         <div class="card mt-4">
             <div class="card-header bg-secondary text-white fw-bold">📂 Data Management</div>

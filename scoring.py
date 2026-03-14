@@ -142,6 +142,140 @@ def _parse_picks(row):
         return []
 
 
+def parse_picks_from_string(picks_str):
+    """Parse Picks string (e.g. from league row) into list. Returns empty list on error."""
+    if picks_str is None or (isinstance(picks_str, float) and pd.isna(picks_str)):
+        return []
+    try:
+        raw = str(picks_str).replace('"', '"').replace('"', '"').replace("'", "'").replace("'", "'")
+        out = ast.literal_eval(raw)
+        return out if isinstance(out, list) else []
+    except (ValueError, SyntaxError):
+        return []
+
+
+def get_team_scoring_breakdown(picks, year, round_name, is_test=False, session_type=None):
+    """
+    Read-only: compute scoring breakdown for one team's picks.
+    Does NOT modify any data. Returns dict with driver_breakdowns, constructor_breakdowns, totals.
+    On error returns {"error": str}.
+    """
+    if not picks or len(picks) < 11:
+        return {"error": "Invalid picks: need at least 10 drivers and 1 constructor."}
+
+    drivers = picks[:10]
+    constructors = picks[10:]
+
+    try:
+        if not os.path.exists('f1_cache'):
+            os.makedirs('f1_cache')
+        fastf1.Cache.enable_cache('f1_cache')
+
+        if is_test:
+            test_year = year - 1
+            schedule = fastf1.get_event_schedule(test_year, include_testing=False)
+            if is_test == 'sprint':
+                sprint_formats = ('sprint', 'sprint_shootout', 'sprint_qualifying')
+                if 'EventFormat' not in schedule.columns:
+                    return {"error": f"No Sprint events found for {test_year} (schedule format unknown)."}
+                sprint_mask = schedule['EventFormat'].isin(sprint_formats)
+                sprint_rounds = schedule.loc[sprint_mask, 'RoundNumber'].dropna().unique().tolist()
+                if not sprint_rounds:
+                    return {"error": f"No Sprint events found for {test_year}."}
+                rnd = random.choice(sprint_rounds)
+                session = fastf1.get_session(test_year, int(rnd), SESSION_SPRINT)
+                session.load(telemetry=False, weather=False)
+            else:
+                rounds_list = schedule['RoundNumber'].unique().tolist()
+                rnd = random.choice(rounds_list) if rounds_list else 1
+                session = fastf1.get_session(test_year, rnd, SESSION_RACE)
+                session.load(telemetry=False, weather=False)
+        else:
+            if session_type is None:
+                session_type = SESSION_SPRINT if is_sprint_event(round_name) else SESSION_RACE
+            event_for_lookup = normalize_event_name(round_name)
+            session = fastf1.get_session(year, event_for_lookup, session_type)
+            session.load(telemetry=False, weather=False)
+
+        results = session.results
+        if results.empty:
+            return {"error": "No results available for this session."}
+
+        max_laps = 0
+        try:
+            max_laps = results['Laps'].max()
+            if pd.isna(max_laps) or max_laps == 0:
+                max_laps = session.laps['LapNumber'].max() if len(session.laps) > 0 else 0
+        except Exception:
+            pass
+        max_laps = int(max_laps) if max_laps else 0
+
+        fastest_lap_abbr = None
+        try:
+            fastest_lap_abbr = session.laps.pick_fastest()['Driver']
+        except Exception:
+            pass
+
+        fantasy_grid, dns_abbrs = build_fantasy_grid(results)
+
+        driver_breakdowns = []
+        constructor_breakdowns = []
+        driver_total = 0
+        constructor_total = 0
+
+        for pick in drivers:
+            if pick not in DRIVER_MAP:
+                driver_breakdowns.append({
+                    "pick": pick, "abbr": None, "fantasy_grid_pos": None, "grid_pts": 0, "laps": 0, "lap_pts": 0,
+                    "status": "NOT IN DRIVER_MAP", "finish_pos": None, "gain_pts": 0, "finish_pts": 0,
+                    "fastest_lap_pts": 0, "deductions": 0, "total": 0
+                })
+                continue
+            abbr = DRIVER_MAP[pick]
+            d_data = results[results['Abbreviation'] == abbr]
+            if d_data.empty:
+                driver_breakdowns.append({
+                    "pick": pick, "abbr": abbr, "fantasy_grid_pos": None, "grid_pts": 0, "laps": 0, "lap_pts": 0,
+                    "status": "NO ROW IN RESULTS", "finish_pos": None, "gain_pts": 0, "finish_pts": 0,
+                    "fastest_lap_pts": 0, "deductions": 0, "total": 0
+                })
+                continue
+            d = d_data.iloc[0]
+            _, _, _, b = _score_driver_core(d, fantasy_grid, dns_abbrs, fastest_lap_abbr, max_laps, session, abbr)
+            driver_breakdowns.append({
+                "pick": pick, "abbr": abbr, "fantasy_grid_pos": b.get("fantasy_grid_pos"),
+                "grid_pts": b.get("grid_pts", 0), "laps": b.get("laps", 0), "lap_pts": b.get("lap_pts", 0),
+                "status": str(b.get("status", ""))[:50], "finish_pos": b.get("finish_pos"),
+                "gain_pts": b.get("gain_pts", 0), "finish_pts": b.get("finish_pts", 0),
+                "fastest_lap_pts": b.get("fastest_lap_pts", 0), "deductions": b.get("deductions", 0),
+                "total": b.get("total", 0)
+            })
+            driver_total += b.get("total", 0)
+
+        for pick in constructors:
+            c_pts, c_b = _score_constructor_core(pick, results, session)
+            constructor_breakdowns.append({
+                "pick": pick, "official_team": c_b.get("official_team"), "matched_drivers": c_b.get("matched_drivers", []),
+                "driver_statuses": c_b.get("driver_statuses", []), "finishers": c_b.get("finishers", []),
+                "finisher_bonus": c_b.get("finisher_bonus", 0), "best_pos": c_b.get("best_pos"),
+                "finish_pts": c_b.get("finish_pts", 0), "deductions": c_b.get("deductions", 0),
+                "total": c_b.get("total", 0)
+            })
+            constructor_total += c_pts
+
+        event_label = round_name if not is_test else (f"Test Sprint ({test_year})" if is_test == 'sprint' else f"Test GP ({test_year})")
+        return {
+            "driver_breakdowns": driver_breakdowns,
+            "constructor_breakdowns": constructor_breakdowns,
+            "driver_total": driver_total,
+            "constructor_total": constructor_total,
+            "grand_total": driver_total + constructor_total,
+            "event_label": event_label,
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
 def build_fantasy_grid(results):
     """
     Build fantasy-adjusted starting grid from race results.

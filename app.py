@@ -6,7 +6,14 @@ import requests
 import feedparser
 import os
 import scoring
-from scoring import LEADERBOARD_SORT_BY, LEADERBOARD_SORT_ASCENDING, is_sprint_event, normalize_event_name
+from scoring import (
+    LEADERBOARD_SORT_BY,
+    LEADERBOARD_SORT_ASCENDING,
+    is_sprint_event,
+    normalize_event_name,
+    get_team_scoring_breakdown,
+    parse_picks_from_string,
+)
 import fastf1
 import re
 import gspread
@@ -919,8 +926,24 @@ def admin():
         test_leaderboard = []
 
     recent_synced = get_recent_synced_events(10)
-            
-    return render_template('admin.html', title="Admin", races=races, notice=current_notice, google_sync_status=google_sync_status, last_update=last_update, test_leaderboard=test_leaderboard, recent_synced=recent_synced)
+
+    # Build player list for Debug Score Team (from production league data only)
+    df_league = get_league_data()
+    players = []
+    if not df_league.empty and 'Email' in df_league.columns:
+        for _, row in df_league.iterrows():
+            email = str(row.get('Email', '')).strip()
+            nickname = str(row.get('Nickname', '')).strip() or str(row.get('Name', ''))
+            name = str(row.get('Name', '')).strip()
+            if not email:
+                continue
+            label = f"{nickname} ({name})" if nickname and name and nickname != name else (nickname or name or email)
+            players.append({"email": email, "label": label})
+        players.sort(key=lambda p: (p["label"].lower(), p["email"]))
+
+    debug_result = session.pop('debug_result', None)
+
+    return render_template('admin.html', title="Admin", races=races, notice=current_notice, google_sync_status=google_sync_status, last_update=last_update, test_leaderboard=test_leaderboard, recent_synced=recent_synced, players=players, debug_result=debug_result)
 
 @app.route('/admin/notice', methods=['POST'])
 def admin_notice():
@@ -1143,6 +1166,58 @@ def admin_sync():
         reset_test_league_data()
         flash("TEST MODE: Test leaderboard reset from current production data. Production untouched.", "success")
 
+    return redirect(url_for('admin'))
+
+
+@app.route('/admin/debug_score', methods=['POST'])
+def admin_debug_score():
+    """Read-only: debug scoring for a selected player's picks. No writes to league/test data or Google Sheets."""
+    if 'user' not in session or session['user'] != "Admin":
+        flash("Access denied.", "danger")
+        return redirect(url_for('admin'))
+
+    race_name = (request.form.get('debug_race_name') or "").strip()
+    player_email = (request.form.get('player_email') or "").strip().lower()
+    debug_mode = (request.form.get('debug_mode') or "production").strip()
+
+    if not race_name:
+        flash("Debug: No race selected.", "warning")
+        return redirect(url_for('admin'))
+
+    if not player_email:
+        flash("Debug: No player selected.", "warning")
+        return redirect(url_for('admin'))
+
+    df = get_league_data()
+    if df.empty:
+        flash("Debug: No league data available.", "danger")
+        return redirect(url_for('admin'))
+
+    user_row = df[df['Email'].astype(str).str.strip().str.lower() == player_email]
+    if user_row.empty:
+        flash("Debug: Player not found.", "danger")
+        return redirect(url_for('admin'))
+
+    picks_str = user_row.iloc[0].get('Picks')
+    picks = parse_picks_from_string(picks_str)
+    if not picks or len(picks) < 11:
+        flash("Debug: Player has no valid picks stored.", "danger")
+        return redirect(url_for('admin'))
+
+    is_test = False
+    if debug_mode == 'gp_test':
+        is_test = True
+    elif debug_mode == 'sprint_test':
+        is_test = 'sprint'
+
+    result = get_team_scoring_breakdown(picks, LEAGUE_YEAR, race_name, is_test=is_test)
+    if "error" in result:
+        flash(f"Debug: {result['error']}", "danger")
+        return redirect(url_for('admin'))
+
+    nickname = str(user_row.iloc[0].get('Nickname', '')).strip() or str(user_row.iloc[0].get('Name', ''))
+    result['player_label'] = nickname
+    session['debug_result'] = result
     return redirect(url_for('admin'))
 
 if __name__ == "__main__":
