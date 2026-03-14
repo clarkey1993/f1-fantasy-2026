@@ -54,6 +54,7 @@ DATA_FILE = 'league_data.csv'
 TEST_DATA_FILE = 'league_test_data.csv'
 NOTICE_FILE = 'notice.txt'
 HISTORY_FILE = 'race_sync_history.json'
+SEASON_HISTORY_FILE = 'season_results_history.json'
 
 # 2026 Sprint weekend bases: GP cannot be synced before its Sprint
 SPRINT_WEEKEND_BASES = ('China', 'Miami', 'Canada', 'Great Britain', 'Netherlands', 'Singapore')
@@ -296,6 +297,64 @@ def get_recent_synced_events(limit=10):
     """Return the most recently synced production events for display."""
     history = load_sync_history()
     return list(reversed(history[-limit:])) if history else []
+
+
+# --- SEASON RESULTS HISTORY (event-by-event tables, production-only) ---
+
+def load_season_results_history():
+    """Load season event results history from season_results_history.json. Returns list of dicts."""
+    if not os.path.exists(SEASON_HISTORY_FILE):
+        return []
+    try:
+        with open(SEASON_HISTORY_FILE, 'r') as f:
+            data = json.load(f)
+        return data if isinstance(data, list) else []
+    except Exception:
+        return []
+
+def save_season_results_history(history):
+    """Save season event results history to season_results_history.json."""
+    with open(SEASON_HISTORY_FILE, 'w') as f:
+        json.dump(history, f, indent=2)
+
+def _build_event_snapshot(event_name, session_type, df):
+    """Build one event snapshot from df (which has Last Race Pts = points for this event)."""
+    _race_sort_spec = [
+        ('Last Race Pts', False), ('Driver Race Pts', False), ('Top Driver Score', False),
+        ('Constructor Race Pts', False), ('Best Finish Pos', True), ('Prior Best Finish Pos', True), ('Name', True),
+    ]
+    race_sort_cols = [c for c, _ in _race_sort_spec if c in df.columns]
+    race_sort_asc = [asc for c, asc in _race_sort_spec if c in df.columns]
+    sorted_df = df.sort_values(by=race_sort_cols, ascending=race_sort_asc)
+    results = []
+    for i, (_, row) in enumerate(sorted_df.iterrows()):
+        prev = int(row['Previous Pos']) if row.get('Previous Pos', 0) > 0 else None
+        results.append({
+            "pos": i + 1,
+            "display_pos": f"({prev}) {i + 1}" if prev else str(i + 1),
+            "name": str(row.get('Name', '')),
+            "nickname": str(row.get('Nickname', '')),
+            "event_pts": int(row.get('Last Race Pts', 0)),
+            "total_winnings": float(row.get('Total Winnings', 0)),
+        })
+    return {
+        "event_name": event_name,
+        "normalized": normalize_event_name(event_name),
+        "session_type": "Sprint" if session_type == "Sprint" else "GP",
+        "timestamp": datetime.datetime.now().isoformat(),
+        "results": results,
+    }
+
+def add_event_to_season_history(event_name, session_type, df):
+    """Append one event snapshot to season results history. Production sync only."""
+    entry = _build_event_snapshot(event_name, session_type, df)
+    history = load_season_results_history()
+    history.append(entry)
+    save_season_results_history(history)
+
+def append_event_snapshot_to_history(history_list, event_name, session_type, df):
+    """Append one event snapshot to a history list. Used when rebuilding during force_sync."""
+    history_list.append(_build_event_snapshot(event_name, session_type, df))
 
 def get_team_details(name, is_constructor=False):
     """Returns color, slug, and team name for a driver/constructor."""
@@ -544,24 +603,26 @@ def home():
             
     if df.empty:
         flash("Could not load league data.", "danger")
-        return render_template('index.html', title="Home", leaderboard=[], race_results=[], notice=notice_msg)
-    
-    # 1. Latest Race Recap Data
-    # Sort by Last Race Pts (desc), then tie-breaks, then Name
-    _race_sort_spec = [
-        ('Last Race Pts', False), ('Driver Race Pts', False), ('Top Driver Score', False),
-        ('Constructor Race Pts', False), ('Best Finish Pos', True), ('Prior Best Finish Pos', True), ('Name', True),
-    ]
-    race_sort_cols = [c for c, _ in _race_sort_spec if c in df.columns]
-    race_sort_asc = [asc for c, asc in _race_sort_spec if c in df.columns]
-    race_results_df = df.sort_values(by=race_sort_cols, ascending=race_sort_asc)
-    race_results = []
-    for i, (index, row) in enumerate(race_results_df.iterrows()):
-        row_dict = row.to_dict()
-        # Format Position: (Prev Overall) Weekend Rank
-        prev = int(row['Previous Pos']) if row['Previous Pos'] > 0 else "-"
-        row_dict['DisplayPos'] = f"({prev}) {i + 1}"
-        race_results.append(row_dict)
+        return render_template('index.html', title="Home", leaderboard=[], season_history=[], notice=notice_msg)
+
+    # 1. Season Results History (event-by-event, newest first)
+    raw_history = load_season_results_history()
+    season_history = []
+    for entry in reversed(raw_history):
+        evt = entry.get("event_name", "")
+        sess = entry.get("session_type", "GP")
+        base = normalize_event_name(evt)
+        if sess == "Sprint":
+            title = f"{base} Sprint Results"
+        else:
+            title = f"{base} Grand Prix Results"
+        season_history.append({
+            "title": title,
+            "event_name": evt,
+            "session_type": sess,
+            "timestamp": entry.get("timestamp", ""),
+            "results": entry.get("results", []),
+        })
 
     # 2. Main Leaderboard Data
     # Sort by official tie-break order (see scoring.LEADERBOARD_SORT_BY)
@@ -577,7 +638,7 @@ def home():
         row_dict['DisplayPos'] = f"({prev}) {i + 1}"
         leaderboard_data.append(row_dict)
 
-    return render_template('index.html', title="Leaderboard", leaderboard=leaderboard_data, race_results=race_results, notice=notice_msg)
+    return render_template('index.html', title="Leaderboard", leaderboard=leaderboard_data, season_history=season_history, notice=notice_msg)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -1082,6 +1143,7 @@ def admin_sync():
                 flash(f"PRODUCTION MODE: {msg} Google Sheet sync failed.", "danger")
             session_type = "Sprint" if is_sprint_event(race_name) else "GP"
             add_sync_to_history(race_name, session_type)
+            add_event_to_season_history(race_name, session_type, updated_df)
         else:
             flash(msg, "danger")
 
@@ -1122,6 +1184,7 @@ def admin_sync():
 
         history = load_sync_history()
         last_msg = ""
+        new_season_history = []
         for entry in history:
             evt = (entry.get("event_name") or "").strip()
             payouts = force_payouts if evt == race_name else default_payouts
@@ -1131,7 +1194,10 @@ def admin_sync():
                 return redirect(url_for('admin'))
             if evt == race_name:
                 last_msg = msg
+            sess_type = entry.get("session_type", "GP")
+            append_event_snapshot_to_history(new_season_history, evt, sess_type, df)
 
+        save_season_results_history(new_season_history)
         save_status = save_league_data(df)
         if save_status is True:
             flash(f"PRODUCTION MODE: Force resync complete. {last_msg} Data synced to CSV and Google Sheet.", "success")

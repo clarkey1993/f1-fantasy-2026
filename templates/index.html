@@ -12,45 +12,8 @@
         📢 <strong>League Notice:</strong> {{ notice }}
     </div>
     {% endif %}
-    
-    <!-- Latest Race Recap Section -->
-    <div class="row mb-5">
-        <div class="col-12">
-            <div class="card shadow-sm h-100">
-                <div class="card-header bg-danger text-white">
-                    <h5 class="mb-0">🏁 Latest Race Results</h5>
-                </div>
-                <div class="card-body p-0">
-                    <table class="table table-striped table-hover mb-0 align-middle">
-                        <thead class="table-dark">
-                            <tr>
-                                <th scope="col">Pos</th>
-                                <th scope="col">Manager</th>
-                                <th scope="col">Team Name</th>
-                                <th scope="col" class="text-end">Pts</th>
-                                <th scope="col" class="text-end">Winnings</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for row in race_results %}
-                            <tr>
-                                <th scope="row" class="text-nowrap">{{ row['DisplayPos'] }}</th>
-                                <td>{{ row['Name'] }}</td>
-                                <td><a href="{{ url_for('view_team', nickname=row['Nickname']) }}" class="text-decoration-none fw-bold">{{ row['Nickname'] }}</a></td>
-                                <td class="text-end fw-bold">{{ row['Last Race Pts']|int }}</td>
-                                <td class="text-end text-success">£{{ "%.2f"|format(row['Total Winnings']) }}</td>
-                            </tr>
-                            {% else %}
-                            <tr><td colspan="5" class="text-center text-muted">No data available.</td></tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
 
-    <!-- Main Leaderboard -->
+    <!-- Overall Leaderboard -->
     <div class="card shadow-sm">
         <div class="card-header bg-danger text-white">
             <h4 class="mb-0">🏆 Overall Standings</h4>
@@ -82,6 +45,46 @@
             </table>
         </div>
     </div>
+
+    <!-- Season History: event-by-event results -->
+    {% if season_history %}
+    <div class="mt-5">
+        <h4 class="border-bottom pb-2 mb-4">📋 Season History</h4>
+        {% for event in season_history %}
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0">🏁 {{ event.title }}</h5>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-striped table-hover mb-0 align-middle">
+                    <thead class="table-dark">
+                        <tr>
+                            <th scope="col">Pos</th>
+                            <th scope="col">Manager</th>
+                            <th scope="col">Team Name</th>
+                            <th scope="col" class="text-end">Pts</th>
+                            <th scope="col" class="text-end">Winnings</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in event.results %}
+                        <tr>
+                            <th scope="row" class="text-nowrap">{{ row.display_pos }}</th>
+                            <td>{{ row.name }}</td>
+                            <td><a href="{{ url_for('view_team', nickname=row.nickname) }}" class="text-decoration-none fw-bold">{{ row.nickname }}</a></td>
+                            <td class="text-end fw-bold">{{ row.event_pts }}</td>
+                            <td class="text-end text-success">£{{ "%.2f"|format(row.total_winnings) }}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="5" class="text-center text-muted">No data.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
     
     <div class="text-muted text-end mt-2">
         <small>🕒 Last Updated: {{ now.strftime('%d %b %Y, %H:%M') }}</small>
