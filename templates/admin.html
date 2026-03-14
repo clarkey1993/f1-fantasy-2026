@@ -201,10 +201,10 @@
                     </div>
                     <div class="mb-2">
                         <label class="form-label">Player</label>
-                        <select class="form-select" name="player_email" required>
+                        <select class="form-select" name="player_index" required>
                             <option value="">-- Select player --</option>
                             {% for p in players %}
-                            <option value="{{ p.email }}">{{ p.label }}</option>
+                            <option value="{{ p.index }}">{{ p.label }}</option>
                             {% endfor %}
                         </select>
                     </div>
@@ -217,7 +217,13 @@
         {% if debug_result %}
         <div class="card mt-4 border-info">
             <div class="card-header bg-info text-dark fw-bold">📊 Scoring Breakdown — {{ debug_result.player_label or 'Player' }} — {{ debug_result.event_label }}</div>
-            <div class="card-body p-0">
+            <div class="card-body">
+                {% if debug_result.debug_confirmation %}
+                <div class="alert alert-light border mb-3 py-2 small">
+                    <strong>Debug confirmation:</strong> Row index {{ debug_result.debug_confirmation.player_index }} | Nickname: {{ debug_result.debug_confirmation.nickname }} | Name: {{ debug_result.debug_confirmation.name }}<br>
+                    <strong>Picks loaded:</strong> {{ debug_result.debug_confirmation.picks_loaded }}
+                </div>
+                {% endif %}
                 <div class="table-responsive">
                     <table class="table table-sm table-bordered mb-0">
                         <thead class="table-light">

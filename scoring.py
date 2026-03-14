@@ -9,6 +9,7 @@ import ast
 import random
 import re
 import logging
+import unicodedata
 
 from f1_config import DRIVER_MAP, CONSTRUCTOR_MAP, app_constructor_to_fastf1
 
@@ -224,14 +225,18 @@ def get_team_scoring_breakdown(picks, year, round_name, is_test=False, session_t
         constructor_total = 0
 
         for pick in drivers:
-            if pick not in DRIVER_MAP:
+            abbr = DRIVER_MAP.get(pick)
+            if abbr is None:
+                # Try ASCII-normalized (e.g. Hülkenberg -> Hulkenberg)
+                norm = unicodedata.normalize('NFKD', pick).encode('ascii', 'ignore').decode('ascii')
+                abbr = DRIVER_MAP.get(norm)
+            if abbr is None:
                 driver_breakdowns.append({
                     "pick": pick, "abbr": None, "fantasy_grid_pos": None, "grid_pts": 0, "laps": 0, "lap_pts": 0,
                     "status": "NOT IN DRIVER_MAP", "finish_pos": None, "gain_pts": 0, "finish_pts": 0,
                     "fastest_lap_pts": 0, "deductions": 0, "total": 0
                 })
                 continue
-            abbr = DRIVER_MAP[pick]
             d_data = results[results['Abbreviation'] == abbr]
             if d_data.empty:
                 driver_breakdowns.append({

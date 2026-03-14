@@ -1027,18 +1027,17 @@ def admin():
     recent_synced = get_recent_synced_events(10)
 
     # Build player list for Debug Score Team (from production league data only)
+    # Use row index as value for unambiguous lookup; leaderboard uses same get_league_data()
     df_league = get_league_data()
     players = []
-    if not df_league.empty and 'Email' in df_league.columns:
-        for _, row in df_league.iterrows():
-            email = str(row.get('Email', '')).strip()
+    if not df_league.empty:
+        for idx, row in df_league.iterrows():
             nickname = str(row.get('Nickname', '')).strip() or str(row.get('Name', ''))
             name = str(row.get('Name', '')).strip()
-            if not email:
-                continue
-            label = f"{nickname} ({name})" if nickname and name and nickname != name else (nickname or name or email)
-            players.append({"email": email, "label": label})
-        players.sort(key=lambda p: (p["label"].lower(), p["email"]))
+            email = str(row.get('Email', '')).strip()
+            label = f"{nickname} ({name})" if nickname and name and nickname != name else (nickname or name or email or f"Row {idx}")
+            players.append({"index": idx, "label": label})
+        players.sort(key=lambda p: (p["label"].lower(), p["index"]))
 
     debug_result = session.pop('debug_result', None)
 
@@ -1281,14 +1280,14 @@ def admin_debug_score():
         return redirect(url_for('admin'))
 
     race_name = (request.form.get('debug_race_name') or "").strip()
-    player_email = (request.form.get('player_email') or "").strip().lower()
+    player_index_str = (request.form.get('player_index') or "").strip()
     debug_mode = (request.form.get('debug_mode') or "current_season").strip()
 
     if not race_name:
         flash("Debug: No race selected.", "warning")
         return redirect(url_for('admin'))
 
-    if not player_email:
+    if not player_index_str:
         flash("Debug: No player selected.", "warning")
         return redirect(url_for('admin'))
 
@@ -1297,12 +1296,18 @@ def admin_debug_score():
         flash("Debug: No league data available.", "danger")
         return redirect(url_for('admin'))
 
-    user_row = df[df['Email'].astype(str).str.strip().str.lower() == player_email]
-    if user_row.empty:
-        flash("Debug: Player not found.", "danger")
+    try:
+        player_index = int(player_index_str)
+    except ValueError:
+        flash("Debug: Invalid player selection.", "danger")
         return redirect(url_for('admin'))
 
-    picks_str = user_row.iloc[0].get('Picks')
+    if player_index not in df.index:
+        flash("Debug: Player not found (row no longer exists).", "danger")
+        return redirect(url_for('admin'))
+
+    row = df.loc[player_index]
+    picks_str = row.get('Picks')
     picks = parse_picks_from_string(picks_str)
     if not picks or len(picks) < 11:
         flash("Debug: Player has no valid picks stored.", "danger")
@@ -1319,8 +1324,15 @@ def admin_debug_score():
         flash(f"Debug: {result['error']}", "danger")
         return redirect(url_for('admin'))
 
-    nickname = str(user_row.iloc[0].get('Nickname', '')).strip() or str(user_row.iloc[0].get('Name', ''))
+    nickname = str(row.get('Nickname', '')).strip() or str(row.get('Name', ''))
+    name = str(row.get('Name', '')).strip()
     result['player_label'] = nickname
+    result['debug_confirmation'] = {
+        "player_index": player_index,
+        "nickname": nickname,
+        "name": name,
+        "picks_loaded": picks,
+    }
     session['debug_result'] = result
     return redirect(url_for('admin'))
 
