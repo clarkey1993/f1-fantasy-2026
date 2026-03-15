@@ -432,21 +432,29 @@ def score_driver(d, fantasy_grid, dns_abbrs, fastest_lap_abbr, max_laps, session
 def _build_constructor_rank_map(results):
     """
     Build map: FastF1 TeamName (as in results) -> (constructor_rank, finish_pts).
-    Constructor rank is determined by each constructor's best-finishing car among constructors;
-    points by constructor rank: 1st=25, 2nd=18, 3rd=15, 4th=12, 5th=10, 6th=8, 7th=6, 8th=4, 9th=2, 10th=1.
+    Constructor rank is determined by full sorted list of finishing positions (best first);
+    ties are broken by 2nd car, 3rd car, etc. Points by rank: 1st=25, 2nd=18, 3rd=15, ...
     """
-    team_best = {}  # team -> best car classified position
-    for team_name in results['TeamName'].dropna().unique():
-        t_data = results[results['TeamName'] == team_name]
-        finishers = [r for _, r in t_data.iterrows() if _finished(str(r.get('Status', '')))]
-        if finishers:
-            best = min(safe_int(c.get('ClassifiedPosition'), 999) for c in finishers)
-            team_best[team_name] = best
+    constructor_positions = {}
+    for _, row in results.iterrows():
+        team = row.get("TeamName")
+        if pd.isna(team):
+            continue
+        if not _finished(str(row.get("Status", ""))):
+            continue
+        pos = safe_int(row.get("ClassifiedPosition"), 999)
+        if pos >= 999:
+            continue
+        if team not in constructor_positions:
+            constructor_positions[team] = []
+        constructor_positions[team].append(pos)
 
-    # Sort constructors by best position (ascending: P1 first), assign constructor rank 1, 2, ...
-    sorted_teams = sorted(team_best.items(), key=lambda x: x[1])
+    for team in constructor_positions:
+        constructor_positions[team].sort()
+
+    ranked = sorted(constructor_positions.items(), key=lambda x: x[1])
     rank_map = {}
-    for rank, (team, _) in enumerate(sorted_teams, start=1):
+    for rank, (team, _) in enumerate(ranked, start=1):
         pts = CONSTRUCTOR_FINISH_POINTS.get(rank, 0)
         rank_map[team] = (rank, pts)
     return rank_map
