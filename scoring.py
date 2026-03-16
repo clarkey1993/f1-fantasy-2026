@@ -24,6 +24,11 @@ FINISH_POINTS = {1: 25, 2: 18, 3: 15, 4: 12, 5: 10, 6: 8, 7: 6, 8: 4, 9: 2, 10: 
 # Points awarded by constructor rank (1st among constructors = 25, etc.)
 CONSTRUCTOR_FINISH_POINTS = {1: 25, 2: 18, 3: 15, 4: 12, 5: 10, 6: 8, 7: 6, 8: 4, 9: 2, 10: 1}
 
+# Grid points: fixed 22-driver scale (P1=22, P2=21, ..., P22=1). DNS score 0. Drivers below DNS
+# move up on the fantasy grid; that shifted position is used for both grid points and gain points,
+# but the scale never shrinks (so with 2 DNS, fantasy P1 still gets 22, fantasy P20 gets 3).
+FULL_GRID_SIZE = 22
+
 # Tie-break column names (stored in dataframe for leaderboard sorting)
 TIEBREAK_COLS = ['Driver Race Pts', 'Constructor Race Pts', 'Top Driver Score', 'Best Finish Pos', 'Prior Best Finish Pos']
 
@@ -300,8 +305,10 @@ def get_team_scoring_breakdown(picks, year, round_name, is_test=False, session_t
 def build_fantasy_grid(results):
     """
     Build fantasy-adjusted starting grid from race results.
-    Handles: pit lane starters (get pos 20, others move up), DNS (score 0, others move up).
-    Returns: dict abbr -> fantasy_grid_position (1-20), and set of DNS abbrs.
+    DNS are excluded (score 0); everyone else moves up and gets positions 1..N.
+    Grid points and gain points both use this shifted fantasy position, but grid
+    points use the fixed FULL_GRID_SIZE (22) scale, not N.
+    Returns: dict abbr -> fantasy_grid_position (1..N), and set of DNS abbrs.
     """
     # Build list of (abbr, original_grid, is_pit_lane, is_dns)
     rows = []
@@ -372,12 +379,13 @@ def _score_driver_core(d, fantasy_grid, dns_abbrs, fastest_lap_abbr, max_laps, s
 
     grid_pos = fantasy_grid.get(abbr)
     if grid_pos is None:
-        grid_pos = 20
+        grid_pos = FULL_GRID_SIZE
 
     pts = 0
     race_pts = 0
 
-    grid_pts = max(0, 21 - grid_pos)
+    # Fixed 22-driver scale: grid_pts = (FULL_GRID_SIZE + 1) - fantasy_position (scale does not shrink with DNS)
+    grid_pts = max(0, (FULL_GRID_SIZE + 1) - grid_pos)
     pts += grid_pts
     race_pts += grid_pts
     b["grid_pts"] = grid_pts
