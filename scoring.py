@@ -377,19 +377,19 @@ def _score_driver_core(d, fantasy_grid, dns_abbrs, fastest_lap_abbr, max_laps, s
     if laps == 0 and _finished(status):
         laps = int(max_laps)
 
-    grid_pos = fantasy_grid.get(abbr)
-    if grid_pos is None:
-        grid_pos = FULL_GRID_SIZE
+    # Use official FIA starting grid (GridPosition) for both grid points and gain.
+    # We NEVER renumber for DNS; DNS drivers are already returned above with 0 pts.
+    start_pos = safe_int(d.get('GridPosition'), FULL_GRID_SIZE)
 
     pts = 0
     race_pts = 0
 
-    # Fixed 22-driver scale: grid_pts = (FULL_GRID_SIZE + 1) - fantasy_position (scale does not shrink with DNS)
-    grid_pts = max(0, (FULL_GRID_SIZE + 1) - grid_pos)
+    # Fixed 22-driver scale: grid_pts = (FULL_GRID_SIZE + 1) - original_grid_position
+    grid_pts = max(0, (FULL_GRID_SIZE + 1) - start_pos)
     pts += grid_pts
     race_pts += grid_pts
     b["grid_pts"] = grid_pts
-    b["fantasy_grid_pos"] = grid_pos
+    b["fantasy_grid_pos"] = start_pos
     b["laps"] = laps
     b["lap_pts"] = laps
     b["status"] = status
@@ -409,7 +409,8 @@ def _score_driver_core(d, fantasy_grid, dns_abbrs, fastest_lap_abbr, max_laps, s
 
     finish = safe_int(d.get('ClassifiedPosition'), 999)
     b["finish_pos"] = finish
-    gain = grid_pos - finish
+    # Gain: official starting grid minus classified finish position
+    gain = start_pos - finish
     if gain > 0:
         pts += gain
         race_pts += gain
