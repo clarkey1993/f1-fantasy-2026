@@ -228,6 +228,7 @@ def get_team_scoring_breakdown(picks, year, round_name, is_test=False, session_t
 
         fantasy_grid, dns_abbrs = build_fantasy_grid(results)
         finisher_pos_map = _build_finisher_pos_map(results)
+        original_grid_map = _build_original_grid_map(results)
 
         driver_breakdowns = []
         constructor_breakdowns = []
@@ -256,7 +257,7 @@ def get_team_scoring_breakdown(picks, year, round_name, is_test=False, session_t
                 })
                 continue
             d = d_data.iloc[0]
-            _, _, _, b = _score_driver_core(d, fantasy_grid, dns_abbrs, fastest_lap_abbr, max_laps, session, abbr, finisher_pos_map)
+            _, _, _, b = _score_driver_core(d, fantasy_grid, dns_abbrs, fastest_lap_abbr, max_laps, session, abbr, finisher_pos_map, original_grid_map)
             driver_breakdowns.append({
                 "pick": pick, "abbr": abbr, "fantasy_grid_pos": b.get("fantasy_grid_pos"),
                 "grid_pts": b.get("grid_pts", 0), "laps": b.get("laps", 0), "lap_pts": b.get("lap_pts", 0),
@@ -358,6 +359,18 @@ def build_fantasy_grid(results):
     return fantasy, dns_abbrs
 
 
+def _build_original_grid_map(results):
+    """
+    Build map: driver abbr -> original FIA grid position (before DNS removal).
+    Used for gain calculation; grid points still use fantasy grid.
+    """
+    return {
+        r['Abbreviation']: safe_int(r.get('GridPosition'), 0)
+        for _, r in results.iterrows()
+        if r.get('Abbreviation')
+    }
+
+
 def _build_finisher_pos_map(results):
     """
     Build map: driver abbr -> position among finishers only (1..N).
@@ -374,7 +387,7 @@ def _build_finisher_pos_map(results):
     }
 
 
-def _score_driver_core(d, fantasy_grid, dns_abbrs, fastest_lap_abbr, max_laps, session, abbr, finisher_pos_map):
+def _score_driver_core(d, fantasy_grid, dns_abbrs, fastest_lap_abbr, max_laps, session, abbr, finisher_pos_map, original_grid_map):
     """Internal: compute driver score. Returns (pts, race_pts, finish, breakdown_dict)."""
     b = dict(grid_pts=0, laps=0, lap_pts=0, status="", finish_pos=None, gain_pts=0, finish_pts=0, fastest_lap_pts=0, deductions=0, total=0)
 
@@ -432,7 +445,8 @@ def _score_driver_core(d, fantasy_grid, dns_abbrs, fastest_lap_abbr, max_laps, s
         return pts, race_pts, None, b
 
     b["finish_pos"] = finish
-    gain = grid_pos - finish
+    original_grid_pos = original_grid_map.get(abbr, grid_pos)
+    gain = original_grid_pos - finish
     if gain > 0:
         pts += gain
         race_pts += gain
@@ -452,11 +466,11 @@ def _score_driver_core(d, fantasy_grid, dns_abbrs, fastest_lap_abbr, max_laps, s
     return pts, race_pts, finish, b
 
 
-def score_driver(d, fantasy_grid, dns_abbrs, fastest_lap_abbr, max_laps, session, abbr, finisher_pos_map):
+def score_driver(d, fantasy_grid, dns_abbrs, fastest_lap_abbr, max_laps, session, abbr, finisher_pos_map, original_grid_map):
     """
     Score a single driver. Returns (points, race_only_points, classified_position or None).
     """
-    pts, race_pts, finish, _ = _score_driver_core(d, fantasy_grid, dns_abbrs, fastest_lap_abbr, max_laps, session, abbr, finisher_pos_map)
+    pts, race_pts, finish, _ = _score_driver_core(d, fantasy_grid, dns_abbrs, fastest_lap_abbr, max_laps, session, abbr, finisher_pos_map, original_grid_map)
     return pts, race_pts, finish
 
 
@@ -641,6 +655,7 @@ def calculate_race_scores(df, year, round_name, race_payouts=None, is_test=False
 
         fantasy_grid, dns_abbrs = build_fantasy_grid(results)
         finisher_pos_map = _build_finisher_pos_map(results)
+        original_grid_map = _build_original_grid_map(results)
 
         # Debug: log actual FastF1 TeamNames (once per scoring run)
         if 'TeamName' in results.columns:
@@ -701,7 +716,7 @@ def calculate_race_scores(df, year, round_name, race_payouts=None, is_test=False
                     continue
                 d = d_data.iloc[0]
                 pts, race_pts, finish_pos = score_driver(
-                    d, fantasy_grid, dns_abbrs, fastest_lap_abbr, max_laps, session, abbr, finisher_pos_map
+                    d, fantasy_grid, dns_abbrs, fastest_lap_abbr, max_laps, session, abbr, finisher_pos_map, original_grid_map
                 )
                 total += pts
                 driver_race_total += race_pts
