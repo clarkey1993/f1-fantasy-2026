@@ -490,12 +490,30 @@ def build_fantasy_grid(results):
     return fantasy, dns_abbrs
 
 
+def _is_classified_finisher(row):
+    """
+    True if driver crossed the line AND has a valid numeric classified position.
+    Excludes NC/R/Retired etc. where ClassifiedPosition is non-numeric.
+    """
+    if not _finished(str(row.get('Status', ''))):
+        return False
+    pos_val = row.get('ClassifiedPosition')
+    if pd.isna(pos_val):
+        return False
+    s = str(pos_val).strip().upper()
+    if s in ('R', 'NC', 'N/C', 'D', 'E', 'W', 'F', 'N', 'DQ', 'EX', 'RET', ''):
+        return False
+    p = safe_int(pos_val, 999)
+    return 1 <= p <= 99
+
+
 def _build_finisher_pos_map(results):
     """
     Build map: driver abbr -> position among finishers only (1..N).
     Manual scorers only count positions among drivers who actually finished.
+    Excludes NC/R etc. where ClassifiedPosition is non-numeric.
     """
-    finishers = [r for _, r in results.iterrows() if _finished(str(r.get('Status', '')))]
+    finishers = [r for _, r in results.iterrows() if _is_classified_finisher(r)]
     finishers_sorted = sorted(
         finishers,
         key=lambda r: safe_int(r.get('ClassifiedPosition'), 999)
