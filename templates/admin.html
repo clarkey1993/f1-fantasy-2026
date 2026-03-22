@@ -175,6 +175,125 @@
             </div>
         </div>
 
+        <!-- Show Full Race Scores -->
+        <div class="card mt-4 border-secondary">
+            <div class="card-header bg-secondary text-white fw-bold">📋 Show Full Race Scores</div>
+            <div class="card-body">
+                <p class="small text-muted mb-3">Read-only debug. View complete scoring for every driver and constructor in the selected event. No data is modified.</p>
+                <form action="{{ url_for('admin_full_race_scores') }}" method="post">
+                    <div class="mb-2">
+                        <label class="form-label">Race / Event</label>
+                        <select class="form-select" name="full_race_race_name" required>
+                            {% for race in races %}
+                            <option value="{{ race }}">{{ race }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-secondary text-white w-100">Show Full Race Scores</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Full Race Scores Result -->
+        {% if full_race_result %}
+        <div class="card mt-4 border-secondary">
+            <div class="card-header bg-secondary text-white fw-bold">📊 Full Race Scores — {{ full_race_result.event_label }}</div>
+            <div class="card-body">
+                <div class="alert alert-light border py-2 small mb-3">
+                    <strong>Read-only debug output.</strong> No leaderboard data was modified.
+                </div>
+                <p class="mb-3">
+                    <strong>Event:</strong> {{ full_race_result.event_label }} &nbsp;|&nbsp;
+                    <strong>Driver total:</strong> {{ full_race_result.driver_total }} &nbsp;|&nbsp;
+                    <strong>Constructor total:</strong> {{ full_race_result.constructor_total }} &nbsp;|&nbsp;
+                    <strong>Grand total:</strong> {{ full_race_result.grand_total }}
+                </p>
+
+                <h6 class="fw-bold mt-3">SECTION A — DRIVERS</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Driver</th>
+                                <th>Abbr</th>
+                                <th>Team</th>
+                                <th>Grid</th>
+                                <th>Grid Pts</th>
+                                <th>Laps</th>
+                                <th>Lap Pts</th>
+                                <th>Status</th>
+                                <th>Finish</th>
+                                <th>Gain Pts</th>
+                                <th>Finish Pts</th>
+                                <th>FL Pts</th>
+                                <th>Ded</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for d in full_race_result.driver_rows %}
+                            <tr>
+                                <td>{{ d.driver_name }}</td>
+                                <td>{{ d.abbr }}</td>
+                                <td class="small">{{ d.team }}</td>
+                                <td>{{ d.grid if d.grid is not none else '-' }}</td>
+                                <td>{{ d.grid_pts }}</td>
+                                <td>{{ d.laps }}</td>
+                                <td>{{ d.lap_pts }}</td>
+                                <td class="small" style="max-width:120px;">{{ d.status[:40] }}{% if d.status|length > 40 %}…{% endif %}</td>
+                                <td>{{ d.finish if d.finish is not none else '-' }}</td>
+                                <td>{{ d.gain_pts }}</td>
+                                <td>{{ d.finish_pts }}</td>
+                                <td>{{ d.fastest_lap_pts }}</td>
+                                <td>{{ d.deductions }}</td>
+                                <td><strong>{{ d.total }}</strong></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <p class="small mt-2"><strong>Driver total:</strong> {{ full_race_result.driver_total }}</p>
+
+                <h6 class="fw-bold mt-4">SECTION B — CONSTRUCTORS</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Constructor</th>
+                                <th>Matched Drivers</th>
+                                <th>Statuses</th>
+                                <th>Finishers</th>
+                                <th>Finisher Bonus</th>
+                                <th>Best Pos</th>
+                                <th>Constr Rank</th>
+                                <th>Finish Pts</th>
+                                <th>Ded</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for c in full_race_result.constructor_rows %}
+                            <tr>
+                                <td>{{ c.constructor_name }}</td>
+                                <td class="small">{{ c.matched_drivers|join(', ') or '-' }}</td>
+                                <td class="small" style="max-width:150px;">{{ c.statuses|join('; ') or '-' }}</td>
+                                <td class="small">{{ c.finishers|join(', ') or '-' }}</td>
+                                <td>{{ c.finisher_bonus }}</td>
+                                <td>{{ c.best_pos if c.best_pos is not none else '-' }}</td>
+                                <td>{{ c.constructor_rank if c.constructor_rank is not none else '-' }}</td>
+                                <td>{{ c.finish_pts }}</td>
+                                <td>{{ c.deductions }}</td>
+                                <td><strong>{{ c.total }}</strong></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <p class="small mt-2"><strong>Constructor total:</strong> {{ full_race_result.constructor_total }}</p>
+            </div>
+        </div>
+        {% endif %}
+
         <!-- Debug Score Team -->
         <div class="card mt-4 border-info">
             <div class="card-header bg-info text-dark fw-bold">🔍 Debug Score Team</div>

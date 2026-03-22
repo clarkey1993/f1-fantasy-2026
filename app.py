@@ -12,6 +12,7 @@ from scoring import (
     is_sprint_event,
     normalize_event_name,
     get_team_scoring_breakdown,
+    get_full_race_scoring_breakdown,
     parse_picks_from_string,
 )
 import fastf1
@@ -1364,8 +1365,9 @@ def admin():
         players.sort(key=lambda p: (p["label"].lower(), p["index"]))
 
     debug_result = session.pop('debug_result', None)
+    full_race_result = session.pop('full_race_result', None)
 
-    return render_template('admin.html', title="Admin", races=races, notice=current_notice, google_sync_status=google_sync_status, last_update=last_update, test_leaderboard=test_leaderboard, recent_synced=recent_synced, players=players, debug_result=debug_result)
+    return render_template('admin.html', title="Admin", races=races, notice=current_notice, google_sync_status=google_sync_status, last_update=last_update, test_leaderboard=test_leaderboard, recent_synced=recent_synced, players=players, debug_result=debug_result, full_race_result=full_race_result)
 
 @app.route('/admin/notice', methods=['POST'])
 def admin_notice():
@@ -1670,6 +1672,28 @@ def admin_debug_score():
     }
     session['debug_result'] = result
     return redirect(url_for('admin'))
+
+
+@app.route('/admin/full_race_scores', methods=['POST'])
+def admin_full_race_scores():
+    """Read-only: show full race scoring breakdown for all drivers and constructors. No writes to league/test data or Google Sheets."""
+    if 'user' not in session or session['user'] != "Admin":
+        flash("Access denied.", "danger")
+        return redirect(url_for('admin'))
+
+    race_name = (request.form.get('full_race_race_name') or "").strip()
+    if not race_name:
+        flash("Full Race Scores: No race selected.", "warning")
+        return redirect(url_for('admin'))
+
+    result = get_full_race_scoring_breakdown(LEAGUE_YEAR, race_name)
+    if "error" in result:
+        flash(f"Full Race Scores: {result['error']}", "danger")
+        return redirect(url_for('admin'))
+
+    session['full_race_result'] = result
+    return redirect(url_for('admin'))
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))

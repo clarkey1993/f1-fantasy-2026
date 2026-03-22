@@ -303,6 +303,138 @@ def get_team_scoring_breakdown(picks, year, round_name, is_test=False, session_t
         return {"error": str(e)}
 
 
+def get_full_race_scoring_breakdown(year, round_name, is_test=False, session_type=None):
+    """
+    Read-only: compute full scoring breakdown for ALL drivers and constructors in the session.
+    Does NOT modify any data. For visibility/debugging only.
+    Returns dict with driver_rows, constructor_rows, driver_total, constructor_total, grand_total, event_label.
+    On error returns {"error": str}.
+    """
+    try:
+        if not os.path.exists('f1_cache'):
+            os.makedirs('f1_cache')
+        fastf1.Cache.enable_cache('f1_cache')
+
+        if is_test:
+            test_year = year - 1
+            schedule = fastf1.get_event_schedule(test_year, include_testing=False)
+            if is_test == 'sprint':
+                sprint_formats = ('sprint', 'sprint_shootout', 'sprint_qualifying')
+                if 'EventFormat' not in schedule.columns:
+                    return {"error": f"No Sprint events found for {test_year} (schedule format unknown)."}
+                sprint_mask = schedule['EventFormat'].isin(sprint_formats)
+                sprint_rounds = schedule.loc[sprint_mask, 'RoundNumber'].dropna().unique().tolist()
+                if not sprint_rounds:
+                    return {"error": f"No Sprint events found for {test_year}."}
+                rnd = random.choice(sprint_rounds)
+                session = fastf1.get_session(test_year, int(rnd), SESSION_SPRINT)
+                session.load(telemetry=False, weather=False)
+            else:
+                rounds_list = schedule['RoundNumber'].unique().tolist()
+                rnd = random.choice(rounds_list) if rounds_list else 1
+                session = fastf1.get_session(test_year, rnd, SESSION_RACE)
+                session.load(telemetry=False, weather=False)
+        else:
+            if session_type is None:
+                session_type = SESSION_SPRINT if is_sprint_event(round_name) else SESSION_RACE
+            event_for_lookup = normalize_event_name(round_name)
+            session = fastf1.get_session(year, event_for_lookup, session_type)
+            session.load(telemetry=False, weather=False)
+
+        results = session.results
+        if results.empty:
+            return {"error": "No results available for this session."}
+
+        max_laps = 0
+        try:
+            max_laps = results['Laps'].max()
+            if pd.isna(max_laps) or max_laps == 0:
+                max_laps = session.laps['LapNumber'].max() if len(session.laps) > 0 else 0
+        except Exception:
+            pass
+        max_laps = int(max_laps) if max_laps else 0
+
+        fastest_lap_abbr = None
+        try:
+            fastest_lap_abbr = session.laps.pick_fastest()['Driver']
+        except Exception:
+            pass
+
+        fantasy_grid, dns_abbrs = build_fantasy_grid(results)
+        finisher_pos_map = _build_finisher_pos_map(results)
+        constructor_rank_map = _build_constructor_rank_map(results)
+
+        # Reverse map: FastF1 TeamName -> app constructor name
+        ff1_to_app = {v: k for k, v in CONSTRUCTOR_MAP.items()}
+
+        driver_rows = []
+        driver_total = 0
+
+        for _, r in results.iterrows():
+            abbr = r.get('Abbreviation')
+            if not abbr:
+                continue
+            d = r
+            _, _, _, b = _score_driver_core(d, fantasy_grid, dns_abbrs, fastest_lap_abbr, max_laps, session, abbr, finisher_pos_map)
+            driver_name = r.get('FullName') or r.get('Driver') or abbr
+            if hasattr(driver_name, 'strip'):
+                driver_name = str(driver_name).strip()
+            else:
+                driver_name = str(driver_name)
+            team = r.get('TeamName', '')
+            driver_rows.append({
+                "driver_name": driver_name,
+                "abbr": abbr,
+                "team": team,
+                "grid": b.get("fantasy_grid_pos"),
+                "grid_pts": b.get("grid_pts", 0),
+                "laps": b.get("laps", 0),
+                "lap_pts": b.get("lap_pts", 0),
+                "status": str(b.get("status", ""))[:50],
+                "finish": b.get("finish_pos"),
+                "gain_pts": b.get("gain_pts", 0),
+                "finish_pts": b.get("finish_pts", 0),
+                "fastest_lap_pts": b.get("fastest_lap_pts", 0),
+                "deductions": b.get("deductions", 0),
+                "total": b.get("total", 0),
+            })
+            driver_total += b.get("total", 0)
+
+        constructor_rows = []
+        constructor_total = 0
+        unique_teams = results['TeamName'].dropna().unique().tolist() if 'TeamName' in results.columns else []
+
+        for ff1_team in sorted(unique_teams):
+            app_name = ff1_to_app.get(ff1_team, ff1_team)
+            c_pts, c_b = _score_constructor_core(app_name, results, session, constructor_rank_map)
+            constructor_rows.append({
+                "constructor_name": app_name,
+                "matched_drivers": c_b.get("matched_drivers", []),
+                "statuses": c_b.get("driver_statuses", []),
+                "finishers": c_b.get("finishers", []),
+                "finisher_bonus": c_b.get("finisher_bonus", 0),
+                "best_pos": c_b.get("best_pos"),
+                "constructor_rank": c_b.get("constructor_rank"),
+                "finish_pts": c_b.get("finish_pts", 0),
+                "deductions": c_b.get("deductions", 0),
+                "total": c_b.get("total", 0),
+            })
+            constructor_total += c_pts
+
+        event_label = round_name if not is_test else (f"Test Sprint ({test_year})" if is_test == 'sprint' else f"Test GP ({test_year})")
+
+        return {
+            "driver_rows": driver_rows,
+            "constructor_rows": constructor_rows,
+            "driver_total": driver_total,
+            "constructor_total": constructor_total,
+            "grand_total": driver_total + constructor_total,
+            "event_label": event_label,
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
 def build_fantasy_grid(results):
     """
     Build fantasy-adjusted starting grid from race results.
