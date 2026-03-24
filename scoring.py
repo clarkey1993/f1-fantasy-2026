@@ -143,15 +143,6 @@ def _disqualified(status):
     return 'disqualified' in s or 'excluded' in s or 'black flag' in s
 
 
-def _parse_picks(row):
-    """Parse Picks string into list. Returns empty list on error."""
-    try:
-        raw = str(row['Picks']).replace('"', '"').replace('"', '"').replace("'", "'").replace("'", "'")
-        return ast.literal_eval(raw)
-    except (ValueError, SyntaxError):
-        return []
-
-
 def parse_picks_from_string(picks_str):
     """Parse Picks string (e.g. from league row) into list. Returns empty list on error."""
     if picks_str is None or (isinstance(picks_str, float) and pd.isna(picks_str)):
@@ -162,6 +153,21 @@ def parse_picks_from_string(picks_str):
         return out if isinstance(out, list) else []
     except (ValueError, SyntaxError):
         return []
+
+
+def _parse_picks(row):
+    """Parse Picks from a league row. Same logic as parse_picks_from_string (keeps leaderboard/debug aligned)."""
+    return parse_picks_from_string(row.get('Picks') if hasattr(row, 'get') else row['Picks'])
+
+
+def _resolve_driver_abbr(pick):
+    """Resolve driver display name to FastF1 abbreviation; matches debug breakdown (ASCII fold for e.g. Hülkenberg)."""
+    if pick is None:
+        return None
+    if pick in DRIVER_MAP:
+        return DRIVER_MAP[pick]
+    norm = unicodedata.normalize('NFKD', str(pick)).encode('ascii', 'ignore').decode('ascii')
+    return DRIVER_MAP.get(norm)
 
 
 def get_team_scoring_breakdown(picks, year, round_name, is_test=False, session_type=None):
@@ -235,11 +241,7 @@ def get_team_scoring_breakdown(picks, year, round_name, is_test=False, session_t
         constructor_total = 0
 
         for pick in drivers:
-            abbr = DRIVER_MAP.get(pick)
-            if abbr is None:
-                # Try ASCII-normalized (e.g. Hülkenberg -> Hulkenberg)
-                norm = unicodedata.normalize('NFKD', pick).encode('ascii', 'ignore').decode('ascii')
-                abbr = DRIVER_MAP.get(norm)
+            abbr = _resolve_driver_abbr(pick)
             if abbr is None:
                 driver_breakdowns.append({
                     "pick": pick, "abbr": None, "fantasy_grid_pos": None, "grid_pts": 0, "laps": 0, "lap_pts": 0,
@@ -799,6 +801,10 @@ def calculate_race_scores(df, year, round_name, race_payouts=None, is_test=False
         df['Previous Pos'] = df['Current Score'].rank(ascending=False, method='min').fillna(0).astype(int)
 
         constructor_rank_map = _build_constructor_rank_map(results)
+        known_session_teams = set()
+        if 'TeamName' in results.columns:
+            known_session_teams = set(results['TeamName'].dropna().astype(str).unique())
+
         race_totals = []
         driver_race_pts_list = []
         constructor_race_pts_list = []
@@ -825,9 +831,10 @@ def calculate_race_scores(df, year, round_name, race_payouts=None, is_test=False
             best_finish = 999
 
             for pick in drivers:
-                if pick not in DRIVER_MAP:
+                abbr = _resolve_driver_abbr(pick)
+                if abbr is None:
+                    logging.warning("[scoring] Driver pick not in DRIVER_MAP (leaderboard sync): %r", pick)
                     continue
-                abbr = DRIVER_MAP[pick]
                 d_data = results[results['Abbreviation'] == abbr]
                 if d_data.empty:
                     continue
@@ -844,7 +851,15 @@ def calculate_race_scores(df, year, round_name, race_payouts=None, is_test=False
 
             scored_ff1_teams = set()
             for pick in constructors:
+                if pick is None or (isinstance(pick, str) and not str(pick).strip()):
+                    continue
                 official_team = app_constructor_to_fastf1(pick)
+                if official_team and known_session_teams and official_team not in known_session_teams:
+                    logging.warning(
+                        "[scoring] Constructor pick %r resolved to FastF1 name %r but that team is not in session results; will score 0 unless fuzzy row match.",
+                        pick,
+                        official_team,
+                    )
                 if official_team in scored_ff1_teams:
                     logging.warning(
                         "[scoring] Duplicate constructor mapping for player picks: %s -> %s already scored",

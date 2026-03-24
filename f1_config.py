@@ -1,6 +1,7 @@
 """
 Shared F1 fantasy configuration - single source of truth for app.py and scoring.py.
 """
+import unicodedata
 
 # Fantasy league season year - used for production race sync and UI display
 LEAGUE_YEAR = 2026
@@ -73,8 +74,22 @@ def get_team_config(team_name):
     return config
 
 def app_constructor_to_fastf1(team_name):
-    """Map app constructor name to FastF1 TeamName. Handles fuzzy match for external sources."""
+    """
+    Map player constructor pick to FastF1 TeamName (session.results['TeamName']).
+    Same resolution for leaderboard sync, debug breakdown, and signup flows:
+    NFKC normalize + strip, exact case-insensitive match on CONSTRUCTOR_MAP keys,
+    then longest-key-first substring match (reduces ambiguous partial matches).
+    """
+    if team_name is None:
+        return ""
+    s = unicodedata.normalize("NFKC", str(team_name)).strip()
+    if not s:
+        return s
+    s_lower = s.lower()
     for app_name, ff1_name in CONSTRUCTOR_MAP.items():
-        if app_name.lower() in str(team_name).lower():
+        if app_name.lower() == s_lower:
             return ff1_name
-    return team_name
+    for app_name, ff1_name in sorted(CONSTRUCTOR_MAP.items(), key=lambda kv: -len(kv[0])):
+        if app_name.lower() in s_lower:
+            return ff1_name
+    return s
