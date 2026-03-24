@@ -115,7 +115,7 @@
             <tr>
                 <td>{{ c.constructor_name }}</td>
                 <td class="small">{{ c.matched_drivers|join(', ') }}</td>
-                <td class="small">{{ c.statuses|join('; ')[:60] }}{% if c.statuses|join('; ')|length > 60 %}…{% endif %}</td>
+                <td class="small">{% set joined_statuses = c.statuses|join('; ') %}{{ joined_statuses[:60] }}{% if joined_statuses|length > 60 %}…{% endif %}</td>
                 <td class="small">{{ c.finishers|join(', ') }}</td>
                 <td class="text-end">{{ c.finisher_bonus }}</td>
                 <td class="text-end">{{ c.best_pos if c.best_pos is not none else '–' }}</td>
