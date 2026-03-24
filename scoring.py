@@ -784,7 +784,7 @@ def calculate_race_scores(df, year, round_name, race_payouts=None, is_test=False
         if df.empty:
             return df, "No players found in the league data."
 
-        for c in ['Current Score', 'Total Winnings', 'Previous Pos', 'Last Race Pts', 'Total Spent']:
+        for c in ['Current Score', 'Total Winnings', 'Previous Pos', 'Last Race Pts', 'Last Race Winnings', 'Total Spent']:
             if c in df.columns:
                 df[c] = pd.to_numeric(df[c], errors='coerce').fillna(0)
             else:
@@ -887,13 +887,16 @@ def calculate_race_scores(df, year, round_name, race_payouts=None, is_test=False
 
         df['Current Score'] = df['Current Score'] + df['Last Race Pts']
 
+        df['Last Race Winnings'] = 0.0
         if race_payouts:
             df['Weekend_Rank'] = df['Last Race Pts'].rank(ascending=False, method='min').astype(int)
             for i, amt in enumerate(race_payouts):
                 target = i + 1
                 mask = df['Weekend_Rank'] == target
                 if mask.any():
-                    df.loc[mask, 'Total Winnings'] += float(amt)
+                    amt_f = float(amt)
+                    df.loc[mask, 'Total Winnings'] += amt_f
+                    df.loc[mask, 'Last Race Winnings'] = amt_f
             df = df.drop(columns=['Weekend_Rank'])
 
         df['Total Spent'] += 5.0

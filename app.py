@@ -176,7 +176,7 @@ def get_league_data():
             save_league_data(df) # Save to local for next time
 
     # Ensure numeric columns exist (incl. tie-break cols from scoring)
-    cols = ['Current Score', 'Total Winnings', 'Previous Pos', 'Last Race Pts', 'Total Spent',
+    cols = ['Current Score', 'Total Winnings', 'Previous Pos', 'Last Race Pts', 'Last Race Winnings', 'Total Spent',
             'Driver Race Pts', 'Constructor Race Pts', 'Top Driver Score', 'Best Finish Pos', 'Prior Best Finish Pos']
     for c in cols:
         if c not in df.columns:
@@ -239,7 +239,7 @@ def get_test_league_data():
     else:
         df = get_league_data().copy()
         save_test_league_data(df)
-    cols = ['Current Score', 'Total Winnings', 'Previous Pos', 'Last Race Pts', 'Total Spent',
+    cols = ['Current Score', 'Total Winnings', 'Previous Pos', 'Last Race Pts', 'Last Race Winnings', 'Total Spent',
             'Driver Race Pts', 'Constructor Race Pts', 'Top Driver Score', 'Best Finish Pos', 'Prior Best Finish Pos']
     for c in cols:
         if c not in df.columns:
@@ -551,7 +551,7 @@ def rebuild_season_history_from_sync_history():
     df = df.copy()
     default_payouts = [20, 15, 10] + [5] * 12
 
-    for c in ['Current Score', 'Total Winnings', 'Previous Pos', 'Last Race Pts', 'Total Spent',
+    for c in ['Current Score', 'Total Winnings', 'Previous Pos', 'Last Race Pts', 'Last Race Winnings', 'Total Spent',
               'Driver Race Pts', 'Constructor Race Pts', 'Top Driver Score']:
         if c in df.columns:
             df[c] = 0
@@ -626,7 +626,8 @@ def save_season_results_history(history):
 
 def _build_event_snapshot(event_name, session_type, df, df_before=None):
     """Build one event snapshot from df (which has Last Race Pts = points for this event).
-    If df_before is provided, event_winnings = Total Winnings (after) - Total Winnings (before) for that event only."""
+    Per-event winnings: prefer column Last Race Winnings (set during sync from payouts).
+    Otherwise fall back to Total Winnings(after) - Total Winnings(before) when df_before is a true pre-sync copy."""
     _race_sort_spec = [
         ('Last Race Pts', False), ('Driver Race Pts', False), ('Top Driver Score', False),
         ('Constructor Race Pts', False), ('Best Finish Pos', True), ('Prior Best Finish Pos', True), ('Name', True),
@@ -638,11 +639,19 @@ def _build_event_snapshot(event_name, session_type, df, df_before=None):
     for i, (idx, row) in enumerate(sorted_df.iterrows()):
         prev = int(row['Previous Pos']) if row.get('Previous Pos', 0) > 0 else None
         total_after = float(row.get('Total Winnings', 0))
-        if df_before is not None and idx in df_before.index:
+        event_winnings = None
+        if 'Last Race Winnings' in row.index:
+            try:
+                lr = row['Last Race Winnings']
+                if pd.notna(lr):
+                    event_winnings = float(lr)
+            except (TypeError, ValueError):
+                event_winnings = None
+        if event_winnings is None and df_before is not None and idx in df_before.index:
             total_before = float(df_before.loc[idx, 'Total Winnings']) if 'Total Winnings' in df_before.columns else 0
-            event_winnings = max(0, total_after - total_before)
-        else:
-            event_winnings = total_after
+            event_winnings = max(0.0, total_after - total_before)
+        if event_winnings is None:
+            event_winnings = 0.0
         results.append({
             "pos": i + 1,
             "display_pos": f"({prev}) {i + 1}" if prev else str(i + 1),
@@ -1290,7 +1299,7 @@ def signup():
                         except: continue
             
             # 5. Save
-            new_row = {"Name": name, "Nickname": nickname, "Email": email, "Password": password, "Picks": str(all_picks), "Current Score": 0, "Total Winnings": 0, "Pos": 0, "Previous Pos": 0, "Last Race Pts": 0, "Total Spent": 0}
+            new_row = {"Name": name, "Nickname": nickname, "Email": email, "Password": password, "Picks": str(all_picks), "Current Score": 0, "Total Winnings": 0, "Pos": 0, "Previous Pos": 0, "Last Race Pts": 0, "Last Race Winnings": 0, "Total Spent": 0}
             updated_df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True) if not df.empty else pd.DataFrame([new_row])
             save_status = save_league_data(updated_df)
             flash("✅ Registration successful! Good luck!", "success")
@@ -1432,7 +1441,7 @@ def admin_reset_scores():
     df = get_league_data()
     if not df.empty:
         # Reset scoring columns to 0 (999 for Best Finish cols), keep Name/Picks/Email/Password
-        for c in ['Current Score', 'Total Winnings', 'Pos', 'Previous Pos', 'Last Race Pts', 'Total Spent',
+        for c in ['Current Score', 'Total Winnings', 'Pos', 'Previous Pos', 'Last Race Pts', 'Last Race Winnings', 'Total Spent',
                   'Driver Race Pts', 'Constructor Race Pts', 'Top Driver Score']:
             if c in df.columns:
                 df[c] = 0
@@ -1461,7 +1470,7 @@ def admin_reset():
         
     # Reset with specific columns matching the schema
     cols = ['Name', 'Nickname', 'Email', 'Password', 'Picks', 'Current Score',
-            'Total Winnings', 'Pos', 'Previous Pos', 'Last Race Pts', 'Total Spent',
+            'Total Winnings', 'Pos', 'Previous Pos', 'Last Race Pts', 'Last Race Winnings', 'Total Spent',
             'Driver Race Pts', 'Constructor Race Pts', 'Top Driver Score', 'Best Finish Pos', 'Prior Best Finish Pos']
     df = pd.DataFrame(columns=cols)
     save_league_data(df)
@@ -1494,6 +1503,7 @@ def admin_sync():
             return redirect(url_for('admin'))
 
         df = get_league_data()
+        df_before_sync = df.copy()
         try:
             p1 = float(request.form.get('p1', 0))
             p2 = float(request.form.get('p2', 0))
@@ -1516,7 +1526,7 @@ def admin_sync():
                 flash(f"PRODUCTION MODE: {msg} Google Sheet sync failed.", "danger")
             session_type = "Sprint" if is_sprint_event(race_name) else "GP"
             add_sync_to_history(race_name, session_type)
-            add_event_to_season_history(race_name, session_type, updated_df, df_before=df)
+            add_event_to_season_history(race_name, session_type, updated_df, df_before=df_before_sync)
         else:
             flash(msg, "danger")
 
@@ -1547,7 +1557,7 @@ def admin_sync():
 
         # Rebuild season from history to correctly overwrite (no double-count)
         df = get_league_data()
-        for c in ['Current Score', 'Total Winnings', 'Previous Pos', 'Last Race Pts', 'Total Spent',
+        for c in ['Current Score', 'Total Winnings', 'Previous Pos', 'Last Race Pts', 'Last Race Winnings', 'Total Spent',
                   'Driver Race Pts', 'Constructor Race Pts', 'Top Driver Score']:
             if c in df.columns:
                 df[c] = 0
