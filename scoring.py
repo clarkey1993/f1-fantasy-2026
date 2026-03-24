@@ -909,3 +909,53 @@ def calculate_race_scores(df, year, round_name, race_payouts=None, is_test=False
 
     except Exception as e:
         return df, f"Error during sync: {str(e)}"
+
+
+def preview_race_scores(df, year, round_name, race_payouts=None, is_test=False, session_type=None):
+    """
+    Read-only preview: runs the same pipeline as calculate_race_scores on a copy of df only.
+    Does not modify the input DataFrame, files, Google Sheets, or history.
+
+    Returns:
+        (message: str, preview: dict | None)
+        preview is None if scoring failed; otherwise contains event_label, player_results,
+        driver_results, constructor_results (same shapes as get_full_race_scoring breakdown rows).
+    """
+    try:
+        if df is None or df.empty:
+            return "No players found in the league data.", None
+        work = df.copy()
+        updated, msg = calculate_race_scores(work, year, round_name, race_payouts, is_test, session_type)
+        if "Successfully" not in msg:
+            return msg, None
+
+        breakdown = get_full_race_scoring_breakdown(year, round_name, is_test=is_test, session_type=session_type)
+        event_label = breakdown.get("event_label", round_name)
+        if "error" in breakdown:
+            event_label = msg.replace("Successfully synced ", "").rstrip("!") if "Successfully synced" in msg else event_label
+
+        ranked = updated.sort_values(by="Last Race Pts", ascending=False)
+        wknd_rank = ranked["Last Race Pts"].rank(ascending=False, method="min").astype(int)
+        player_results = []
+        for idx, row in ranked.iterrows():
+            player_results.append({
+                "name": str(row.get("Name", "")),
+                "nickname": str(row.get("Nickname", "")),
+                "event_pts": int(row.get("Last Race Pts", 0) or 0),
+                "driver_race_pts": int(row.get("Driver Race Pts", 0) or 0),
+                "constructor_race_pts": int(row.get("Constructor Race Pts", 0) or 0),
+                "event_winnings": float(row.get("Last Race Winnings", 0) or 0),
+                "event_rank": int(wknd_rank.loc[idx]),
+            })
+
+        preview = {
+            "event_label": event_label,
+            "message": msg,
+            "player_results": player_results,
+            "driver_results": breakdown.get("driver_rows", []) if "error" not in breakdown else [],
+            "constructor_results": breakdown.get("constructor_rows", []) if "error" not in breakdown else [],
+            "breakdown_error": breakdown.get("error"),
+        }
+        return msg, preview
+    except Exception as e:
+        return f"Preview failed: {str(e)}", None

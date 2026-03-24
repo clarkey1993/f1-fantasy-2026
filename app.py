@@ -1705,6 +1705,41 @@ def admin_full_race_scores():
     return redirect(url_for('admin'))
 
 
+@app.route('/admin/preview_race', methods=['POST'])
+def admin_preview_race():
+    """Read-only: full scoring preview on a copy of league data. No CSV, Sheets, history, or leaderboard persistence."""
+    if 'user' not in session or session['user'] != "Admin":
+        flash("Access denied.", "danger")
+        return redirect(url_for('home'))
+
+    race_name = (request.form.get('race_name') or "").strip()
+    if not race_name:
+        flash("Preview: No race selected.", "warning")
+        return redirect(url_for('admin'))
+
+    df = get_league_data()
+    try:
+        p1 = float(request.form.get('p1', 0))
+        p2 = float(request.form.get('p2', 0))
+        p3 = float(request.form.get('p3', 0))
+        p_rest = float(request.form.get('p_rest', 0))
+        payouts = [p1, p2, p3] + [p_rest] * 12
+    except ValueError:
+        flash("Preview: Invalid payout values.", "danger")
+        return redirect(url_for('admin'))
+
+    msg, preview = scoring.preview_race_scores(df, LEAGUE_YEAR, race_name, payouts)
+    if preview is None:
+        flash(f"Preview: {msg}", "danger")
+        return redirect(url_for('admin'))
+
+    return render_template(
+        'admin_race_preview.html',
+        title="Preview Race Results",
+        preview=preview,
+    )
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)

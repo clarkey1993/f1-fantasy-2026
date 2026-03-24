@@ -1,0 +1,131 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12 mb-3">
+        <a href="{{ url_for('admin') }}" class="btn btn-outline-secondary btn-sm">← Back to Admin</a>
+    </div>
+</div>
+
+<div class="alert alert-info border mb-4">
+    <strong>Read-only preview.</strong> No leaderboard, cumulative totals, winnings, Google Sheets, or history were modified. Use <strong>Publish Race Results</strong> on the admin panel to apply.
+</div>
+
+<h2 class="border-bottom pb-2 mb-3">🔍 Preview — {{ preview.event_label }}</h2>
+<p class="text-muted small">{{ preview.message }}</p>
+
+{% if preview.breakdown_error %}
+<div class="alert alert-warning">Driver/constructor breakdown unavailable: {{ preview.breakdown_error }}</div>
+{% endif %}
+
+<h4 class="mt-4">Players (this event)</h4>
+<p class="small text-muted">Sorted by event points. Winnings use the payout fields you entered.</p>
+<div class="table-responsive">
+    <table class="table table-sm table-bordered table-striped">
+        <thead class="table-light">
+            <tr>
+                <th>Rank</th>
+                <th>Manager</th>
+                <th>Team</th>
+                <th class="text-end">Event pts</th>
+                <th class="text-end">Driver pts</th>
+                <th class="text-end">Constructor pts</th>
+                <th class="text-end">Event £</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in preview.player_results %}
+            <tr>
+                <td>{{ p.event_rank }}</td>
+                <td>{{ p.name }}</td>
+                <td><strong>{{ p.nickname }}</strong></td>
+                <td class="text-end fw-bold">{{ p.event_pts }}</td>
+                <td class="text-end">{{ p.driver_race_pts }}</td>
+                <td class="text-end">{{ p.constructor_race_pts }}</td>
+                <td class="text-end text-success">£{{ "%.2f"|format(p.event_winnings) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<h4 class="mt-4">Drivers (session)</h4>
+<div class="table-responsive">
+    <table class="table table-sm table-bordered">
+        <thead class="table-light">
+            <tr>
+                <th>Driver</th>
+                <th>Abbr</th>
+                <th>Team</th>
+                <th class="text-end">Grid</th>
+                <th class="text-end">Grid Pts</th>
+                <th class="text-end">Laps</th>
+                <th class="text-end">Lap Pts</th>
+                <th>Status</th>
+                <th class="text-end">Finish</th>
+                <th class="text-end">Gain</th>
+                <th class="text-end">Finish Pts</th>
+                <th class="text-end">FL</th>
+                <th class="text-end">Ded</th>
+                <th class="text-end">Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for d in preview.driver_results %}
+            <tr>
+                <td>{{ d.driver_name }}</td>
+                <td>{{ d.abbr }}</td>
+                <td class="small">{{ d.team }}</td>
+                <td class="text-end">{{ d.grid if d.grid is not none else '–' }}</td>
+                <td class="text-end">{{ d.grid_pts }}</td>
+                <td class="text-end">{{ d.laps }}</td>
+                <td class="text-end">{{ d.lap_pts }}</td>
+                <td class="small">{{ d.status[:35] }}{% if d.status|length > 35 %}…{% endif %}</td>
+                <td class="text-end">{{ d.finish if d.finish is not none else '–' }}</td>
+                <td class="text-end">{{ d.gain_pts }}</td>
+                <td class="text-end">{{ d.finish_pts }}</td>
+                <td class="text-end">{{ d.fastest_lap_pts }}</td>
+                <td class="text-end">{{ d.deductions }}</td>
+                <td class="text-end fw-bold">{{ d.total }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<h4 class="mt-4">Constructors (session)</h4>
+<div class="table-responsive">
+    <table class="table table-sm table-bordered">
+        <thead class="table-light">
+            <tr>
+                <th>Constructor</th>
+                <th>Drivers</th>
+                <th>Statuses</th>
+                <th>Finishers</th>
+                <th class="text-end">Fin bonus</th>
+                <th class="text-end">Best</th>
+                <th class="text-end">Rank</th>
+                <th class="text-end">Finish Pts</th>
+                <th class="text-end">Ded</th>
+                <th class="text-end">Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in preview.constructor_results %}
+            <tr>
+                <td>{{ c.constructor_name }}</td>
+                <td class="small">{{ c.matched_drivers|join(', ') }}</td>
+                <td class="small">{{ c.statuses|join('; ')[:60] }}{% if c.statuses|join('; ')|length > 60 %}…{% endif %}</td>
+                <td class="small">{{ c.finishers|join(', ') }}</td>
+                <td class="text-end">{{ c.finisher_bonus }}</td>
+                <td class="text-end">{{ c.best_pos if c.best_pos is not none else '–' }}</td>
+                <td class="text-end">{{ c.constructor_rank if c.constructor_rank is not none else '–' }}</td>
+                <td class="text-end">{{ c.finish_pts }}</td>
+                <td class="text-end">{{ c.deductions }}</td>
+                <td class="text-end fw-bold">{{ c.total }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

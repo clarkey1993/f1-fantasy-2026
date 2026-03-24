@@ -40,8 +40,9 @@
         <div class="card h-100">
             <div class="card-header bg-danger text-white fw-bold">🏁 Race Operations</div>
             <div class="card-body">
-                <form id="sync-form" action="{{ url_for('admin_sync') }}" method="post" onsubmit="return confirmSyncAction(this);">
+                <form id="sync-form" action="{{ url_for('admin_sync') }}" method="post">
                     <input type="hidden" name="action" id="sync_action_input" value="sync">
+                    <p class="small text-muted mb-2"><strong>Step 1:</strong> Preview (read-only). <strong>Step 2:</strong> Publish to standings.</p>
                     
                     <div class="mb-3">
                         <label class="form-label">Select Race to Sync</label>
@@ -68,18 +69,20 @@
                         </div>
                     </div>
 
-                    <button type="submit" class="btn btn-primary w-100 mb-2" onclick="document.getElementById('sync_action_input').value='sync';">🔄 Sync Race & Update Standings</button>
-                    <button type="submit" class="btn btn-outline-danger w-100" onclick="document.getElementById('sync_action_input').value='force_sync';">⚠️ Force Resync Race</button>
+                    <button type="submit" class="btn btn-outline-secondary w-100 mb-2" form="sync-form" formaction="{{ url_for('admin_preview_race') }}" formmethod="post">🔍 Preview Race Results</button>
+                    <button type="submit" class="btn btn-primary w-100 mb-2" onclick="document.getElementById('sync_action_input').value='sync'; return confirmPublishRace();">✅ Publish Race Results</button>
+                    <button type="submit" class="btn btn-outline-danger w-100" onclick="document.getElementById('sync_action_input').value='force_sync'; return confirmForceResync();">⚠️ Force Resync Race</button>
                 </form>
                 <script>
-                function confirmSyncAction(form) {
+                function confirmPublishRace() {
                     var sel = document.getElementById('race_name_select');
                     var race = sel ? sel.options[sel.selectedIndex].value : '';
-                    var action = document.getElementById('sync_action_input').value;
-                    if (action === 'force_sync') {
-                        return confirm('WARNING: Force resync will overwrite the previous results for ' + race + '. Continue?');
-                    }
-                    return confirm('Are you sure you want to sync ' + race + ' to PRODUCTION standings?');
+                    return confirm('Publish ' + race + ' to PRODUCTION standings? This updates the leaderboard, winnings, and history.');
+                }
+                function confirmForceResync() {
+                    var sel = document.getElementById('race_name_select');
+                    var race = sel ? sel.options[sel.selectedIndex].value : '';
+                    return confirm('WARNING: Force resync will overwrite the previous results for ' + race + '. Continue?');
                 }
                 </script>
             </div>
