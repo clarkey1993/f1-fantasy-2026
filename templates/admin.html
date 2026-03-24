@@ -1,10 +1,11 @@
 {% extends "layout.html" %}
 
 {% block content %}
-<div class="row">
-    <div class="col-12 mb-4">
-        <h2 class="border-bottom pb-2">🔐 Commissioner Panel</h2>
-        <p class="text-muted">Manage race results and league scoring.</p>
+<!-- Page header -->
+<div class="row mb-4">
+    <div class="col-12">
+        <h2 class="border-bottom pb-2 mb-2">🔐 Commissioner Panel</h2>
+        <p class="text-muted mb-0">Manage race results and league scoring.</p>
     </div>
 </div>
 
@@ -18,12 +19,12 @@
     {% endif %}
 </div>
 
-<!-- Notice Board Section -->
-<div class="row mb-4">
+<!-- Notice Board -->
+<div class="row mb-5">
     <div class="col-12">
-        <div class="card">
-            <div class="card-header bg-info text-dark fw-bold">📢 League Notice Board</div>
-            <div class="card-body">
+        <div class="card shadow-sm">
+            <div class="card-header bg-info text-dark fw-bold py-3">📢 League Notice Board</div>
+            <div class="card-body px-3 px-md-4 py-4">
                 <form action="{{ url_for('admin_notice') }}" method="post">
                     <label class="form-label">Enter a message for the Leaderboard (leave empty to clear):</label>
                     <textarea class="form-control mb-3" name="notice_msg" rows="2">{{ notice }}</textarea>
@@ -34,18 +35,28 @@
     </div>
 </div>
 
-<div class="row">
-    <!-- Race Sync Section -->
-    <div class="col-md-6">
-        <div class="card h-100">
-            <div class="card-header bg-danger text-white fw-bold">🏁 Race Operations</div>
-            <div class="card-body">
+<div class="row g-4">
+    <!-- ========== LEFT: Production race control ========== -->
+    <div class="col-12 col-lg-6">
+        <h3 class="h5 fw-bold text-secondary text-uppercase small mb-3">Production race control</h3>
+
+        <div class="card border-danger shadow-sm h-100">
+            <div class="card-header bg-danger text-white fw-bold py-3">🏁 Race Operations</div>
+            <div class="card-body px-3 px-md-4 py-4">
+                <div class="rounded-2 bg-light border p-3 small mb-4">
+                    <p class="mb-2 fw-semibold">Typical workflow</p>
+                    <ol class="mb-0 ps-3">
+                        <li class="mb-1"><strong>Preview</strong> — read-only; checks points and payouts.</li>
+                        <li class="mb-1"><strong>Publish</strong> — writes standings, winnings, and history.</li>
+                        <li class="mb-0 text-muted">Use <strong>Force resync</strong> only when you must replace an event already synced.</li>
+                    </ol>
+                </div>
+
                 <form id="sync-form" action="{{ url_for('admin_sync') }}" method="post">
                     <input type="hidden" name="action" id="sync_action_input" value="sync">
-                    <p class="small text-muted mb-2"><strong>Step 1:</strong> Preview (read-only). <strong>Step 2:</strong> Publish to standings.</p>
-                    
-                    <div class="mb-3">
-                        <label class="form-label">Select Race to Sync</label>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold" for="race_name_select">Event</label>
                         <select class="form-select" name="race_name" id="race_name_select">
                             {% for race in races %}
                             <option value="{{ race }}">{{ race }}</option>
@@ -53,25 +64,38 @@
                         </select>
                     </div>
 
-                    <label class="form-label">Race Payouts (£/€)</label>
-                    <div class="row g-2 mb-4">
-                        <div class="col-3">
-                            <input type="number" class="form-control" name="p1" value="20" placeholder="1st">
+                    <fieldset class="mb-4">
+                        <legend class="form-label fw-semibold mb-2">Race payouts (£ / €)</legend>
+                        <p class="small text-muted mb-3">Used for preview and publish (1st, 2nd, 3rd, then 4th–15th).</p>
+                        <div class="row g-2 g-md-3">
+                            <div class="col-6 col-md-3">
+                                <label class="form-label small text-muted mb-1" for="payout_p1">1st</label>
+                                <input type="number" class="form-control" name="p1" id="payout_p1" value="20" placeholder="1st">
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <label class="form-label small text-muted mb-1" for="payout_p2">2nd</label>
+                                <input type="number" class="form-control" name="p2" id="payout_p2" value="15" placeholder="2nd">
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <label class="form-label small text-muted mb-1" for="payout_p3">3rd</label>
+                                <input type="number" class="form-control" name="p3" id="payout_p3" value="10" placeholder="3rd">
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <label class="form-label small text-muted mb-1" for="payout_rest">4th–15th</label>
+                                <input type="number" class="form-control" name="p_rest" id="payout_rest" value="5" placeholder="4th-15th">
+                            </div>
                         </div>
-                        <div class="col-3">
-                            <input type="number" class="form-control" name="p2" value="15" placeholder="2nd">
-                        </div>
-                        <div class="col-3">
-                            <input type="number" class="form-control" name="p3" value="10" placeholder="3rd">
-                        </div>
-                        <div class="col-3">
-                            <input type="number" class="form-control" name="p_rest" value="5" placeholder="4th-15th">
-                        </div>
+                    </fieldset>
+
+                    <div class="d-grid gap-2 mb-0">
+                        <button type="submit" class="btn btn-outline-secondary btn-lg" form="sync-form" formaction="{{ url_for('admin_preview_race') }}" formmethod="post">🔍 Preview Race Results</button>
+                        <button type="submit" class="btn btn-primary btn-lg" onclick="document.getElementById('sync_action_input').value='sync'; return confirmPublishRace();">✅ Publish Race Results</button>
                     </div>
 
-                    <button type="submit" class="btn btn-outline-secondary w-100 mb-2" form="sync-form" formaction="{{ url_for('admin_preview_race') }}" formmethod="post">🔍 Preview Race Results</button>
-                    <button type="submit" class="btn btn-primary w-100 mb-2" onclick="document.getElementById('sync_action_input').value='sync'; return confirmPublishRace();">✅ Publish Race Results</button>
-                    <button type="submit" class="btn btn-outline-danger w-100" onclick="document.getElementById('sync_action_input').value='force_sync'; return confirmForceResync();">⚠️ Force Resync Race</button>
+                    <div class="mt-4 pt-4 border-top">
+                        <p class="small text-muted mb-2">Advanced — overwrites prior sync for this event.</p>
+                        <button type="submit" class="btn btn-outline-danger w-100" onclick="document.getElementById('sync_action_input').value='force_sync'; return confirmForceResync();">⚠️ Force Resync Race</button>
+                    </div>
                 </form>
                 <script>
                 function confirmPublishRace() {
@@ -88,26 +112,25 @@
             </div>
         </div>
 
-        <!-- Recently Synced Production Races -->
-        <div class="card mt-4">
-            <div class="card-header bg-secondary text-white fw-bold">📋 Recently Synced Production Races</div>
+        <div class="card shadow-sm mt-4">
+            <div class="card-header bg-secondary text-white fw-bold py-3">📋 Recently Synced Production Races</div>
             <div class="card-body p-0">
                 {% if recent_synced %}
                 <div class="table-responsive">
-                    <table class="table table-sm table-hover mb-0">
-                        <thead>
+                    <table class="table table-sm table-hover mb-0 align-middle">
+                        <thead class="table-light">
                             <tr>
-                                <th>Event</th>
+                                <th class="ps-3">Event</th>
                                 <th>Type</th>
-                                <th>Synced</th>
+                                <th class="pe-3 text-end">Synced</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for e in recent_synced %}
                             <tr>
-                                <td>{{ e.event_name }}</td>
+                                <td class="ps-3">{{ e.event_name }}</td>
                                 <td>{{ e.session_type }}</td>
-                                <td class="text-muted small">{{ e.timestamp[:19] if e.timestamp else '-' }}</td>
+                                <td class="pe-3 text-muted small text-end">{{ e.timestamp[:19] if e.timestamp else '-' }}</td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -120,344 +143,349 @@
         </div>
     </div>
 
-    <!-- Testing Section -->
-    <div class="col-md-6">
-        <div class="card border-warning">
-            <div class="card-header bg-warning text-dark fw-bold">🧪 System Testing</div>
-            <div class="card-body">
-                <p class="small text-muted mb-2">Run simulations on <strong>test data only</strong>. Production leaderboard and Google Sheet are never modified.</p>
-                <form action="{{ url_for('admin_sync') }}" method="post" class="mb-2">
-                    <input type="hidden" name="action" value="test">
-                    <button type="submit" class="btn btn-warning w-100 mb-2">🏁 Run GP Test</button>
-                </form>
-                <form action="{{ url_for('admin_sync') }}" method="post" class="mb-2">
-                    <input type="hidden" name="action" value="test_sprint">
-                    <button type="submit" class="btn btn-outline-warning w-100 mb-2">⚡ Run Sprint Test</button>
-                </form>
-                <form action="{{ url_for('admin_sync') }}" method="post" onsubmit="return confirm('Reset test leaderboard from current production data?');">
-                    <input type="hidden" name="action" value="reset_test_data">
-                    <button type="submit" class="btn btn-outline-secondary w-100">🔄 Reset Test Leaderboard</button>
-                </form>
-            </div>
-        </div>
+    <!-- ========== RIGHT: Tools & maintenance ========== -->
+    <div class="col-12 col-lg-6">
+        <h3 class="h5 fw-bold text-secondary text-uppercase small mb-3">Tools &amp; diagnostics</h3>
 
-        <!-- Test Leaderboard -->
-        <div class="card mt-4 border-warning">
-            <div class="card-header bg-warning text-dark fw-bold">📊 Test Leaderboard</div>
-            <div class="card-body p-0">
-                {% if test_leaderboard %}
-                <div class="table-responsive">
-                    <table class="table table-sm table-hover mb-0">
-                        <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>Name</th>
-                                <th>Score</th>
-                                <th>Last Race</th>
-                                <th>Winnings</th>
-                                <th>Spent</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for row in test_leaderboard %}
-                            <tr>
-                                <td>{{ row.Pos }}</td>
-                                <td>{{ row.Nickname or row.Name or '-' }}</td>
-                                <td>{{ row['Current Score'] }}</td>
-                                <td>{{ row['Last Race Pts'] }}</td>
-                                <td>{{ row['Total Winnings'] }}</td>
-                                <td>{{ row['Total Spent'] }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-                {% else %}
-                <p class="text-muted small p-3 mb-0">No test data. Run a test or reset from production.</p>
-                {% endif %}
-            </div>
-        </div>
-
-        <!-- Show Full Race Scores -->
-        <div class="card mt-4 border-secondary">
-            <div class="card-header bg-secondary text-white fw-bold">📋 Show Full Race Scores</div>
-            <div class="card-body">
-                <p class="small text-muted mb-3">Read-only debug. View complete scoring for every driver and constructor in the selected event. No data is modified.</p>
-                <form action="{{ url_for('admin_full_race_scores') }}" method="post">
-                    <div class="mb-2">
-                        <label class="form-label">Race / Event</label>
-                        <select class="form-select" name="full_race_race_name" required>
-                            {% for race in races %}
-                            <option value="{{ race }}">{{ race }}</option>
-                            {% endfor %}
-                        </select>
+        <div class="d-flex flex-column gap-4">
+            <div class="card border-warning shadow-sm">
+                <div class="card-header bg-warning text-dark fw-bold py-3">🧪 System Testing</div>
+                <div class="card-body px-3 px-md-4 py-4">
+                    <p class="small text-muted mb-3">Simulations use <strong>test data only</strong>. Production leaderboard and Google Sheet are not modified.</p>
+                    <div class="d-grid gap-2">
+                        <form action="{{ url_for('admin_sync') }}" method="post">
+                            <input type="hidden" name="action" value="test">
+                            <button type="submit" class="btn btn-warning w-100">🏁 Run GP Test</button>
+                        </form>
+                        <form action="{{ url_for('admin_sync') }}" method="post">
+                            <input type="hidden" name="action" value="test_sprint">
+                            <button type="submit" class="btn btn-outline-warning w-100">⚡ Run Sprint Test</button>
+                        </form>
+                        <form action="{{ url_for('admin_sync') }}" method="post" onsubmit="return confirm('Reset test leaderboard from current production data?');">
+                            <input type="hidden" name="action" value="reset_test_data">
+                            <button type="submit" class="btn btn-outline-secondary w-100">🔄 Reset Test Leaderboard</button>
+                        </form>
                     </div>
-                    <button type="submit" class="btn btn-secondary text-white w-100">Show Full Race Scores</button>
-                </form>
+                </div>
             </div>
-        </div>
 
-        <!-- Full Race Scores Result -->
-        {% if full_race_result %}
-        <div class="card mt-4 border-secondary">
-            <div class="card-header bg-secondary text-white fw-bold">📊 Full Race Scores — {{ full_race_result.event_label }}</div>
-            <div class="card-body">
-                <div class="alert alert-light border py-2 small mb-3">
-                    <strong>Read-only debug output.</strong> No leaderboard data was modified.
-                </div>
-                <p class="mb-3">
-                    <strong>Event:</strong> {{ full_race_result.event_label }} &nbsp;|&nbsp;
-                    <strong>Driver total:</strong> {{ full_race_result.driver_total }} &nbsp;|&nbsp;
-                    <strong>Constructor total:</strong> {{ full_race_result.constructor_total }} &nbsp;|&nbsp;
-                    <strong>Grand total:</strong> {{ full_race_result.grand_total }}
-                </p>
-
-                <h6 class="fw-bold mt-3">SECTION A — DRIVERS</h6>
-                <div class="table-responsive">
-                    <table class="table table-sm table-bordered mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Driver</th>
-                                <th>Abbr</th>
-                                <th>Team</th>
-                                <th>Grid</th>
-                                <th>Grid Pts</th>
-                                <th>Laps</th>
-                                <th>Lap Pts</th>
-                                <th>Status</th>
-                                <th>Finish</th>
-                                <th>Gain Pts</th>
-                                <th>Finish Pts</th>
-                                <th>FL Pts</th>
-                                <th>Ded</th>
-                                <th>Total</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for d in full_race_result.driver_rows %}
-                            <tr>
-                                <td>{{ d.driver_name }}</td>
-                                <td>{{ d.abbr }}</td>
-                                <td class="small">{{ d.team }}</td>
-                                <td>{{ d.grid if d.grid is not none else '-' }}</td>
-                                <td>{{ d.grid_pts }}</td>
-                                <td>{{ d.laps }}</td>
-                                <td>{{ d.lap_pts }}</td>
-                                <td class="small" style="max-width:120px;">{{ d.status[:40] }}{% if d.status|length > 40 %}…{% endif %}</td>
-                                <td>{{ d.finish if d.finish is not none else '-' }}</td>
-                                <td>{{ d.gain_pts }}</td>
-                                <td>{{ d.finish_pts }}</td>
-                                <td>{{ d.fastest_lap_pts }}</td>
-                                <td>{{ d.deductions }}</td>
-                                <td><strong>{{ d.total }}</strong></td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-                <p class="small mt-2"><strong>Driver total:</strong> {{ full_race_result.driver_total }}</p>
-
-                <h6 class="fw-bold mt-4">SECTION B — CONSTRUCTORS</h6>
-                <div class="table-responsive">
-                    <table class="table table-sm table-bordered mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Constructor</th>
-                                <th>Matched Drivers</th>
-                                <th>Statuses</th>
-                                <th>Finishers</th>
-                                <th>Finisher Bonus</th>
-                                <th>Best Pos</th>
-                                <th>Constr Rank</th>
-                                <th>Finish Pts</th>
-                                <th>Ded</th>
-                                <th>Total</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for c in full_race_result.constructor_rows %}
-                            <tr>
-                                <td>{{ c.constructor_name }}</td>
-                                <td class="small">{{ c.matched_drivers|join(', ') or '-' }}</td>
-                                <td class="small" style="max-width:150px;">{{ c.statuses|join('; ') or '-' }}</td>
-                                <td class="small">{{ c.finishers|join(', ') or '-' }}</td>
-                                <td>{{ c.finisher_bonus }}</td>
-                                <td>{{ c.best_pos if c.best_pos is not none else '-' }}</td>
-                                <td>{{ c.constructor_rank if c.constructor_rank is not none else '-' }}</td>
-                                <td>{{ c.finish_pts }}</td>
-                                <td>{{ c.deductions }}</td>
-                                <td><strong>{{ c.total }}</strong></td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-                <p class="small mt-2"><strong>Constructor total:</strong> {{ full_race_result.constructor_total }}</p>
-            </div>
-        </div>
-        {% endif %}
-
-        <!-- Debug Score Team -->
-        <div class="card mt-4 border-info">
-            <div class="card-header bg-info text-dark fw-bold">🔍 Debug Score Team</div>
-            <div class="card-body">
-                <p class="small text-muted mb-3">Read-only. Select a player and race to see a full scoring breakdown using their saved picks. No data is modified.</p>
-                <form action="{{ url_for('admin_debug_score') }}" method="post">
-                    <div class="mb-2">
-                        <label class="form-label">Data Source</label>
-                        <select class="form-select" name="debug_mode">
-                            <option value="current_season" selected>Current Season Event</option>
-                            <option value="gp_test">Previous Season GP Test</option>
-                            <option value="sprint_test">Previous Season Sprint Test</option>
-                        </select>
-                        <small class="text-muted">Current Season uses the selected race and {{ year }} data. Test modes use random {{ year - 1 }} events.</small>
+            <div class="card border-warning shadow-sm">
+                <div class="card-header bg-warning text-dark fw-bold py-3">📊 Test Leaderboard</div>
+                <div class="card-body p-0">
+                    {% if test_leaderboard %}
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover mb-0 align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="ps-3">#</th>
+                                    <th>Name</th>
+                                    <th>Score</th>
+                                    <th>Last Race</th>
+                                    <th>Winnings</th>
+                                    <th class="pe-3">Spent</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in test_leaderboard %}
+                                <tr>
+                                    <td class="ps-3">{{ row.Pos }}</td>
+                                    <td>{{ row.Nickname or row.Name or '-' }}</td>
+                                    <td>{{ row['Current Score'] }}</td>
+                                    <td>{{ row['Last Race Pts'] }}</td>
+                                    <td>{{ row['Total Winnings'] }}</td>
+                                    <td class="pe-3">{{ row['Total Spent'] }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
                     </div>
-                    <div class="mb-2">
-                        <label class="form-label">Race / Event</label>
-                        <select class="form-select" name="debug_race_name" required>
-                            {% for race in races %}
-                            <option value="{{ race }}">{{ race }}</option>
-                            {% endfor %}
-                        </select>
-                        <small class="text-muted">Used only for Current Season Event.</small>
+                    {% else %}
+                    <p class="text-muted small p-3 mb-0">No test data. Run a test or reset from production.</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="card border-secondary shadow-sm">
+                <div class="card-header bg-secondary text-white fw-bold py-3">📋 Show Full Race Scores</div>
+                <div class="card-body px-3 px-md-4 py-4">
+                    <p class="small text-muted mb-3">Read-only: every driver and constructor for the selected session. Nothing is saved.</p>
+                    <form action="{{ url_for('admin_full_race_scores') }}" method="post">
+                        <div class="mb-3">
+                            <label class="form-label">Race / Event</label>
+                            <select class="form-select" name="full_race_race_name" required>
+                                {% for race in races %}
+                                <option value="{{ race }}">{{ race }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-secondary text-white w-100">Show Full Race Scores</button>
+                    </form>
+                </div>
+            </div>
+
+            {% if full_race_result %}
+            <div class="card border-secondary shadow-sm">
+                <div class="card-header bg-secondary text-white fw-bold py-3">📊 Full Race Scores — {{ full_race_result.event_label }}</div>
+                <div class="card-body px-3 px-md-4 py-4">
+                    <div class="alert alert-light border py-2 small mb-3">
+                        <strong>Read-only debug output.</strong> No leaderboard data was modified.
                     </div>
-                    <div class="mb-2">
-                        <label class="form-label">Player</label>
-                        <select class="form-select" name="player_index" required>
-                            <option value="">-- Select player --</option>
-                            {% for p in players %}
-                            <option value="{{ p.index }}">{{ p.label }}</option>
-                            {% endfor %}
-                        </select>
+                    <p class="mb-3 small">
+                        <strong>Event:</strong> {{ full_race_result.event_label }} &nbsp;|&nbsp;
+                        <strong>Driver total:</strong> {{ full_race_result.driver_total }} &nbsp;|&nbsp;
+                        <strong>Constructor total:</strong> {{ full_race_result.constructor_total }} &nbsp;|&nbsp;
+                        <strong>Grand total:</strong> {{ full_race_result.grand_total }}
+                    </p>
+
+                    <h6 class="fw-bold text-secondary text-uppercase small mt-4 mb-2">Section A — Drivers</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Driver</th>
+                                    <th>Abbr</th>
+                                    <th>Team</th>
+                                    <th>Grid</th>
+                                    <th>Grid Pts</th>
+                                    <th>Laps</th>
+                                    <th>Lap Pts</th>
+                                    <th>Status</th>
+                                    <th>Finish</th>
+                                    <th>Gain Pts</th>
+                                    <th>Finish Pts</th>
+                                    <th>FL Pts</th>
+                                    <th>Ded</th>
+                                    <th>Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for d in full_race_result.driver_rows %}
+                                <tr>
+                                    <td>{{ d.driver_name }}</td>
+                                    <td>{{ d.abbr }}</td>
+                                    <td class="small">{{ d.team }}</td>
+                                    <td>{{ d.grid if d.grid is not none else '-' }}</td>
+                                    <td>{{ d.grid_pts }}</td>
+                                    <td>{{ d.laps }}</td>
+                                    <td>{{ d.lap_pts }}</td>
+                                    <td class="small" style="max-width:120px;">{{ d.status[:40] }}{% if d.status|length > 40 %}…{% endif %}</td>
+                                    <td>{{ d.finish if d.finish is not none else '-' }}</td>
+                                    <td>{{ d.gain_pts }}</td>
+                                    <td>{{ d.finish_pts }}</td>
+                                    <td>{{ d.fastest_lap_pts }}</td>
+                                    <td>{{ d.deductions }}</td>
+                                    <td><strong>{{ d.total }}</strong></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
                     </div>
-                    <button type="submit" class="btn btn-info text-dark w-100">Show Scoring Breakdown</button>
-                </form>
-            </div>
-        </div>
+                    <p class="small mt-2 mb-0"><strong>Driver total:</strong> {{ full_race_result.driver_total }}</p>
 
-        <!-- Debug Result (displayed below form when present) -->
-        {% if debug_result %}
-        <div class="card mt-4 border-info">
-            <div class="card-header bg-info text-dark fw-bold">📊 Scoring Breakdown — {{ debug_result.player_label or 'Player' }} — {{ debug_result.event_label }}</div>
-            <div class="card-body">
-                {% if debug_result.debug_confirmation %}
-                <div class="alert alert-light border mb-3 py-2 small">
-                    <strong>Debug confirmation:</strong> Row index {{ debug_result.debug_confirmation.player_index }} | Nickname: {{ debug_result.debug_confirmation.nickname }} | Name: {{ debug_result.debug_confirmation.name }}<br>
-                    <strong>Picks loaded:</strong> {{ debug_result.debug_confirmation.picks_loaded }}
-                </div>
-                {% endif %}
-                <div class="table-responsive">
-                    <table class="table table-sm table-bordered mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Pick</th>
-                                <th>Abbr</th>
-                                <th>Grid</th>
-                                <th>Grid Pts</th>
-                                <th>Laps</th>
-                                <th>Lap Pts</th>
-                                <th>Status</th>
-                                <th>Finish</th>
-                                <th>Gain Pts</th>
-                                <th>Finish Pts</th>
-                                <th>FL Pts</th>
-                                <th>Ded</th>
-                                <th>Total</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for d in debug_result.driver_breakdowns %}
-                            <tr>
-                                <td>{{ d.pick }}</td>
-                                <td>{{ d.abbr or '-' }}</td>
-                                <td>{{ d.fantasy_grid_pos if d.fantasy_grid_pos is not none else '-' }}</td>
-                                <td>{{ d.grid_pts }}</td>
-                                <td>{{ d.laps }}</td>
-                                <td>{{ d.lap_pts }}</td>
-                                <td class="small" style="max-width:120px;">{{ d.status[:40] }}{% if d.status|length > 40 %}…{% endif %}</td>
-                                <td>{{ d.finish_pos if d.finish_pos is not none else '-' }}</td>
-                                <td>{{ d.gain_pts }}</td>
-                                <td>{{ d.finish_pts }}</td>
-                                <td>{{ d.fastest_lap_pts }}</td>
-                                <td>{{ d.deductions }}</td>
-                                <td><strong>{{ d.total }}</strong></td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-                <div class="table-responsive mt-2">
-                    <table class="table table-sm table-bordered mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Constructor</th>
-                                <th>Official Team</th>
-                                <th>Matched Drivers</th>
-                                <th>Statuses</th>
-                                <th>Finishers</th>
-                                <th>Finisher Bonus</th>
-                                <th>Best Pos</th>
-                                <th>Constr Rank</th>
-                                <th>Finish Pts</th>
-                                <th>Ded</th>
-                                <th>Total</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for c in debug_result.constructor_breakdowns %}
-                            <tr>
-                                <td>{{ c.pick }}</td>
-                                <td>{{ c.official_team or '-' }}</td>
-                                <td class="small">{{ c.matched_drivers|join(', ') or '-' }}</td>
-                                <td class="small" style="max-width:150px;">{{ c.driver_statuses|join('; ') or '-' }}</td>
-                                <td class="small">{{ c.finishers|join(', ') or '-' }}</td>
-                                <td>{{ c.finisher_bonus }}</td>
-                                <td>{{ c.best_pos if c.best_pos is not none else '-' }}</td>
-                                <td>{{ c.constructor_rank if c.constructor_rank is not none else '-' }}</td>
-                                <td>{{ c.finish_pts }}</td>
-                                <td>{{ c.deductions }}</td>
-                                <td><strong>{{ c.total }}</strong></td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-                <div class="p-3 bg-light border-top">
-                    <strong>Driver total:</strong> {{ debug_result.driver_total }} &nbsp;|&nbsp;
-                    <strong>Constructor total:</strong> {{ debug_result.constructor_total }} &nbsp;|&nbsp;
-                    <strong>Grand total:</strong> {{ debug_result.grand_total }}
+                    <h6 class="fw-bold text-secondary text-uppercase small mt-4 mb-2">Section B — Constructors</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Constructor</th>
+                                    <th>Matched Drivers</th>
+                                    <th>Statuses</th>
+                                    <th>Finishers</th>
+                                    <th>Finisher Bonus</th>
+                                    <th>Best Pos</th>
+                                    <th>Constr Rank</th>
+                                    <th>Finish Pts</th>
+                                    <th>Ded</th>
+                                    <th>Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for c in full_race_result.constructor_rows %}
+                                <tr>
+                                    <td>{{ c.constructor_name }}</td>
+                                    <td class="small">{{ c.matched_drivers|join(', ') or '-' }}</td>
+                                    <td class="small" style="max-width:150px;">{{ c.statuses|join('; ') or '-' }}</td>
+                                    <td class="small">{{ c.finishers|join(', ') or '-' }}</td>
+                                    <td>{{ c.finisher_bonus }}</td>
+                                    <td>{{ c.best_pos if c.best_pos is not none else '-' }}</td>
+                                    <td>{{ c.constructor_rank if c.constructor_rank is not none else '-' }}</td>
+                                    <td>{{ c.finish_pts }}</td>
+                                    <td>{{ c.deductions }}</td>
+                                    <td><strong>{{ c.total }}</strong></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="small mt-2 mb-0"><strong>Constructor total:</strong> {{ full_race_result.constructor_total }}</p>
                 </div>
             </div>
-        </div>
-        {% endif %}
+            {% endif %}
 
-        <!-- Data Management -->
-        <div class="card mt-4">
-            <div class="card-header bg-secondary text-white fw-bold">📂 Data Management</div>
-            <div class="card-body">
-                <p class="text-muted small mb-2">Last Local Update: <strong>{{ last_update }}</strong></p>
-                <form action="{{ url_for('admin_clear_cache') }}" method="post" class="mb-2">
-                    <button type="submit" class="btn btn-warning w-100">🧹 Clear FastF1 Cache (Fix Stale Data)</button>
-                </form>
-                <a href="{{ url_for('admin_pull_sheet') }}" class="btn btn-primary w-100 mb-2">☁️ Pull Data from Google Sheet</a>
-                <a href="{{ url_for('admin_export') }}" class="btn btn-secondary w-100">📥 Download League Backup (CSV)</a>
+            <div class="card border-info shadow-sm">
+                <div class="card-header bg-info text-dark fw-bold py-3">🔍 Debug Score Team</div>
+                <div class="card-body px-3 px-md-4 py-4">
+                    <p class="small text-muted mb-3">Read-only breakdown for one player’s picks. No data is modified.</p>
+                    <form action="{{ url_for('admin_debug_score') }}" method="post">
+                        <div class="mb-3">
+                            <label class="form-label">Data Source</label>
+                            <select class="form-select" name="debug_mode">
+                                <option value="current_season" selected>Current Season Event</option>
+                                <option value="gp_test">Previous Season GP Test</option>
+                                <option value="sprint_test">Previous Season Sprint Test</option>
+                            </select>
+                            <small class="text-muted d-block mt-1">Current Season uses the selected race and {{ year }} data. Test modes use random {{ year - 1 }} events.</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Race / Event</label>
+                            <select class="form-select" name="debug_race_name" required>
+                                {% for race in races %}
+                                <option value="{{ race }}">{{ race }}</option>
+                                {% endfor %}
+                            </select>
+                            <small class="text-muted d-block mt-1">Used only for Current Season Event.</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Player</label>
+                            <select class="form-select" name="player_index" required>
+                                <option value="">-- Select player --</option>
+                                {% for p in players %}
+                                <option value="{{ p.index }}">{{ p.label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-info text-dark w-100">Show Scoring Breakdown</button>
+                    </form>
+                </div>
             </div>
-        </div>
 
-        <!-- Danger Zone -->
-        <div class="card mt-4 border-danger">
-            <div class="card-header bg-danger text-white fw-bold">⚠️ Danger Zone</div>
-            <div class="card-body">
-                <p class="text-danger small">These actions cannot be undone.</p>
-                <form action="{{ url_for('admin_reset_scores') }}" method="post" onsubmit="return confirm('Are you sure you want to reset all SCORES to 0? Teams will be kept.');" class="mb-3">
-                    <button type="submit" class="btn btn-warning w-100">🔄 Reset Scores Only (Keep Teams)</button>
-                </form>
-                <form action="{{ url_for('admin_reset_history') }}" method="post" onsubmit="return confirm('This will clear synced race history and season results. Players and picks will NOT be changed. Continue?');" class="mb-3">
-                    <button type="submit" class="btn btn-outline-danger w-100">📋 Reset Season History</button>
-                </form>
-                <form action="{{ url_for('admin_reset') }}" method="post" onsubmit="return confirm('Are you sure you want to WIPE the entire league database?');">
-                    <button type="submit" class="btn btn-danger w-100">🗑️ RESET LEAGUE (Wipe Data)</button>
-                </form>
+            {% if debug_result %}
+            <div class="card border-info shadow-sm">
+                <div class="card-header bg-info text-dark fw-bold py-3">📊 Scoring Breakdown — {{ debug_result.player_label or 'Player' }} — {{ debug_result.event_label }}</div>
+                <div class="card-body px-3 px-md-4 py-4">
+                    {% if debug_result.debug_confirmation %}
+                    <div class="alert alert-light border mb-3 py-2 small">
+                        <strong>Debug confirmation:</strong> Row index {{ debug_result.debug_confirmation.player_index }} | Nickname: {{ debug_result.debug_confirmation.nickname }} | Name: {{ debug_result.debug_confirmation.name }}<br>
+                        <strong>Picks loaded:</strong> {{ debug_result.debug_confirmation.picks_loaded }}
+                    </div>
+                    {% endif %}
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Pick</th>
+                                    <th>Abbr</th>
+                                    <th>Grid</th>
+                                    <th>Grid Pts</th>
+                                    <th>Laps</th>
+                                    <th>Lap Pts</th>
+                                    <th>Status</th>
+                                    <th>Finish</th>
+                                    <th>Gain Pts</th>
+                                    <th>Finish Pts</th>
+                                    <th>FL Pts</th>
+                                    <th>Ded</th>
+                                    <th>Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for d in debug_result.driver_breakdowns %}
+                                <tr>
+                                    <td>{{ d.pick }}</td>
+                                    <td>{{ d.abbr or '-' }}</td>
+                                    <td>{{ d.fantasy_grid_pos if d.fantasy_grid_pos is not none else '-' }}</td>
+                                    <td>{{ d.grid_pts }}</td>
+                                    <td>{{ d.laps }}</td>
+                                    <td>{{ d.lap_pts }}</td>
+                                    <td class="small" style="max-width:120px;">{{ d.status[:40] }}{% if d.status|length > 40 %}…{% endif %}</td>
+                                    <td>{{ d.finish_pos if d.finish_pos is not none else '-' }}</td>
+                                    <td>{{ d.gain_pts }}</td>
+                                    <td>{{ d.finish_pts }}</td>
+                                    <td>{{ d.fastest_lap_pts }}</td>
+                                    <td>{{ d.deductions }}</td>
+                                    <td><strong>{{ d.total }}</strong></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="table-responsive mt-3">
+                        <table class="table table-sm table-bordered mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Constructor</th>
+                                    <th>Official Team</th>
+                                    <th>Matched Drivers</th>
+                                    <th>Statuses</th>
+                                    <th>Finishers</th>
+                                    <th>Finisher Bonus</th>
+                                    <th>Best Pos</th>
+                                    <th>Constr Rank</th>
+                                    <th>Finish Pts</th>
+                                    <th>Ded</th>
+                                    <th>Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for c in debug_result.constructor_breakdowns %}
+                                <tr>
+                                    <td>{{ c.pick }}</td>
+                                    <td>{{ c.official_team or '-' }}</td>
+                                    <td class="small">{{ c.matched_drivers|join(', ') or '-' }}</td>
+                                    <td class="small" style="max-width:150px;">{{ c.driver_statuses|join('; ') or '-' }}</td>
+                                    <td class="small">{{ c.finishers|join(', ') or '-' }}</td>
+                                    <td>{{ c.finisher_bonus }}</td>
+                                    <td>{{ c.best_pos if c.best_pos is not none else '-' }}</td>
+                                    <td>{{ c.constructor_rank if c.constructor_rank is not none else '-' }}</td>
+                                    <td>{{ c.finish_pts }}</td>
+                                    <td>{{ c.deductions }}</td>
+                                    <td><strong>{{ c.total }}</strong></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="p-3 mt-3 bg-light border rounded small">
+                        <strong>Driver total:</strong> {{ debug_result.driver_total }} &nbsp;|&nbsp;
+                        <strong>Constructor total:</strong> {{ debug_result.constructor_total }} &nbsp;|&nbsp;
+                        <strong>Grand total:</strong> {{ debug_result.grand_total }}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <h3 class="h5 fw-bold text-secondary text-uppercase small mb-0 mt-2">Data &amp; files</h3>
+            <div class="card shadow-sm">
+                <div class="card-header bg-secondary text-white fw-bold py-3">📂 Data Management</div>
+                <div class="card-body px-3 px-md-4 py-4">
+                    <p class="text-muted small mb-3">Imports, cache, and backups. Does not publish race results.</p>
+                    <p class="small mb-3">Last local update: <strong>{{ last_update }}</strong></p>
+                    <div class="d-grid gap-2">
+                        <form action="{{ url_for('admin_clear_cache') }}" method="post">
+                            <button type="submit" class="btn btn-warning w-100">🧹 Clear FastF1 Cache (Fix Stale Data)</button>
+                        </form>
+                        <a href="{{ url_for('admin_pull_sheet') }}" class="btn btn-primary w-100">☁️ Pull Data from Google Sheet</a>
+                        <a href="{{ url_for('admin_export') }}" class="btn btn-secondary w-100">📥 Download League Backup (CSV)</a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card border-danger border-2 shadow mt-2">
+                <div class="card-header bg-danger text-white fw-bold py-3">⚠️ Danger Zone</div>
+                <div class="card-body px-3 px-md-4 py-4">
+                    <p class="text-danger small fw-semibold mb-3">Destructive actions — cannot be undone.</p>
+                    <div class="d-grid gap-3">
+                        <form action="{{ url_for('admin_reset_scores') }}" method="post" onsubmit="return confirm('Are you sure you want to reset all SCORES to 0? Teams will be kept.');">
+                            <button type="submit" class="btn btn-warning w-100">🔄 Reset Scores Only (Keep Teams)</button>
+                        </form>
+                        <form action="{{ url_for('admin_reset_history') }}" method="post" onsubmit="return confirm('This will clear synced race history and season results. Players and picks will NOT be changed. Continue?');">
+                            <button type="submit" class="btn btn-outline-danger w-100">📋 Reset Season History</button>
+                        </form>
+                        <form action="{{ url_for('admin_reset') }}" method="post" onsubmit="return confirm('Are you sure you want to WIPE the entire league database?');">
+                            <button type="submit" class="btn btn-danger w-100">🗑️ RESET LEAGUE (Wipe Data)</button>
+                        </form>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
