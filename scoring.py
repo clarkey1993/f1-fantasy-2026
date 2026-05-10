@@ -548,8 +548,13 @@ def _score_driver_core(d, fantasy_grid, dns_abbrs, fastest_lap_abbr, max_laps, s
     race_pts += laps
 
     if _disqualified(status):
-        pts -= 20
-        race_pts -= 20
+        # DSQ scores only starting-grid points, then an additional -20 deduction.
+        pts = grid_pts - 20
+        race_pts = grid_pts - 20
+        b["lap_pts"] = 0
+        b["gain_pts"] = 0
+        b["finish_pts"] = 0
+        b["fastest_lap_pts"] = 0
         b["deductions"] = 20
         b["total"] = pts
         return pts, race_pts, None, b
